@@ -243,6 +243,50 @@ function copyToClipboard() {
     });
 }
 
+// =========== ЗАГРУЗКА ДАННЫХ С СЕРВЕРА ===========
+
+async function loadAnimationsFromServer() {
+    try {
+        const response = await fetch('/api/animations');
+        if (!response.ok) throw new Error('Failed to fetch animations');
+        
+        const animations = await response.json();
+        
+        // Загружаем встроенные анимации
+        const builtInAnimations = [
+            { id: 'spiral', name: 'Спираль', icon: '🌀', color: '#FF6B6B', description: 'Геометрическая спираль с постоянно растущим размером' },
+            { id: 'circles', name: 'Концентрические Круги', icon: '⭕', color: '#4ECDC4', description: 'Вложенные окружности с радужными цветами' },
+            { id: 'stars', name: 'Звёзды', icon: '⭐', color: '#FFD700', description: '8 звёзд, расположенных по кругу' },
+            { id: 'flower', name: 'Цветок', icon: '🌸', color: '#FF69B4', description: 'Красивый цветок из вращающихся кругов' },
+            { id: 'wave', name: 'Волна', icon: '〰️', color: '#45B7D1', description: 'Плавная синусоидальная волна' },
+            { id: 'polygons', name: 'Многоугольники', icon: '▶️', color: '#8338EC', description: 'Вложенные правильные многоугольники' },
+            { id: 'mandala', name: 'Мандала', icon: '✨', color: '#FB5607', description: 'Сложный симметричный узор' },
+            { id: 'tree', name: 'Фрактальное Дерево', icon: '🌲', color: '#2D5016', description: 'Рекурсивное дерево с ветвями' },
+            { id: 'snowflake', name: 'Снежинка', icon: '❄️', color: '#0099FF', description: 'Симметричная снежинка с кристаллическими ветвями' }
+        ];
+        
+        // Добавляем встроенные анимации
+        builtInAnimations.forEach(anim => {
+            addCardToGallery(anim.id, anim.name, anim.icon, anim.color, anim.description);
+        });
+        
+        // Добавляем загруженные анимации
+        Object.entries(animations).forEach(([id, anim]) => {
+            addCardToGallery(id, anim.title, '', anim.color || '#667eea', anim.description || '', anim.image);
+            codeExamples[id] = anim.code;
+        });
+        
+    } catch (error) {
+        console.warn('Could not load animations from server, using localStorage:', error);
+        // Fallback на localStorage
+        const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+        Object.entries(customAnimations).forEach(([id, anim]) => {
+            addCardToGallery(id, anim.name, anim.icon, anim.color, anim.description, anim.image);
+            codeExamples[id] = anim.code;
+        });
+    }
+}
+
 // Закрыть модаль при клике вне её
 window.onclick = function(event) {
     const codeModal = document.getElementById('codeModal');
@@ -304,6 +348,7 @@ function openAdminPanel() {
     const adminList = document.getElementById('adminAnimsList');
     const totalCount = document.getElementById('totalAnimations');
     
+    // Загружаем из localStorage + встроенные
     const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
     totalCount.textContent = Object.keys(customAnimations).length;
     
@@ -412,7 +457,7 @@ function closeAddForm() {
 }
 
 // Обработка отправки формы
-document.getElementById('animationForm')?.addEventListener('submit', function(e) {
+document.getElementById('animationForm')?.addEventListener('submit', async function(e) {
     e.preventDefault();
     
     const name = document.getElementById('animName').value;
@@ -428,55 +473,100 @@ document.getElementById('animationForm')?.addEventListener('submit', function(e)
     // Если выбран файл - конвертируем его в base64
     if (imageFile) {
         const reader = new FileReader();
-        reader.onload = function(event) {
+        reader.onload = async function(event) {
             const imageData = event.target.result;
             
-            // Сохраняем в localStorage с изображением
-            const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
-            customAnimations[id] = {
-                name,
-                icon: '',
-                color,
-                description,
-                code,
-                image: imageData
-            };
-            localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
-            
-            // Добавляем код в глобальный объект
-            codeExamples[id] = code;
-            
-            // Создаем новую карточку и добавляем её в галерею
-            addCardToGallery(id, name, '', color, description, imageData);
-            
-            // Закрываем форму
-            closeAddForm();
-            
-            showNotification('✅ Анимация успешно добавлена!', 'success');
+            // Отправляем на сервер
+            try {
+                const response = await fetch('/api/animations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id,
+                        title: name,
+                        description,
+                        code,
+                        color,
+                        image: imageData
+                    })
+                });
+                
+                if (response.ok) {
+                    // Добавляем код в глобальный объект
+                    codeExamples[id] = code;
+                    
+                    // Создаем новую карточку и добавляем её в галерею
+                    addCardToGallery(id, name, '', color, description, imageData);
+                    
+                    // Закрываем форму
+                    closeAddForm();
+                    
+                    showNotification('✅ Анимация успешно добавлена!', 'success');
+                } else {
+                    throw new Error('Server response not ok');
+                }
+            } catch (error) {
+                console.error('Error saving animation:', error);
+                showNotification('❌ Ошибка при сохранении на сервер. Сохраняю локально...', 'warning');
+                
+                // Fallback на localStorage
+                const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+                customAnimations[id] = {
+                    name,
+                    icon: '',
+                    color,
+                    description,
+                    code,
+                    image: imageData
+                };
+                localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+                codeExamples[id] = code;
+                addCardToGallery(id, name, '', color, description, imageData);
+                closeAddForm();
+            }
         };
         reader.readAsDataURL(imageFile);
     } else {
         // Без изображения - используем текст/эмодзи
-        const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
-        customAnimations[id] = {
-            name,
-            icon,
-            color,
-            description,
-            code
-        };
-        localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
-        
-        // Добавляем код в глобальный объект
-        codeExamples[id] = code;
-        
-        // Создаем новую карточку и добавляем её в галерею
-        addCardToGallery(id, name, icon, color, description);
-        
-        // Закрываем форму
-        closeAddForm();
-        
-        showNotification('✅ Анимация успешно добавлена!', 'success');
+        try {
+            const response = await fetch('/api/animations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id,
+                    title: name,
+                    description,
+                    code,
+                    color
+                })
+            });
+            
+            if (response.ok) {
+                codeExamples[id] = code;
+                addCardToGallery(id, name, icon, color, description);
+                closeAddForm();
+                showNotification('✅ Анимация успешно добавлена!', 'success');
+            } else {
+                throw new Error('Server response not ok');
+            }
+        } catch (error) {
+            console.error('Error saving animation:', error);
+            showNotification('❌ Ошибка при сохранении на сервер. Сохраняю локально...', 'warning');
+            
+            // Fallback на localStorage
+            const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+            customAnimations[id] = {
+                name,
+                icon,
+                color,
+                description,
+                code
+            };
+            localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+            codeExamples[id] = code;
+            addCardToGallery(id, name, icon, color, description);
+            closeAddForm();
+        }
     }
 });
 
@@ -592,7 +682,23 @@ function deleteCustomAnimation(id) {
     showConfirmDialog(
         'Удалить анимацию?',
         'Эта анимация будет удалена безвозвратно.',
-        () => {
+        async () => {
+            try {
+                // Пробуем удалить с сервера
+                const response = await fetch(`/api/animations/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok || response.status === 404) {
+                    // Успешно удалили или уже удалено
+                } else {
+                    throw new Error('Server error');
+                }
+            } catch (error) {
+                console.warn('Could not delete from server:', error);
+            }
+            
+            // Удаляем из localStorage как backup
             const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
             delete customAnimations[id];
             localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
@@ -615,12 +721,8 @@ window.addEventListener('load', function() {
     // Загружаем тему
     loadTheme();
     
-    const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
-    
-    Object.entries(customAnimations).forEach(([id, anim]) => {
-        codeExamples[id] = anim.code;
-        addCardToGallery(id, anim.name, anim.icon, anim.color, anim.description, anim.image);
-    });
+    // Загружаем анимации с сервера
+    loadAnimationsFromServer();
 });
 
 // =========== СИСТЕМА ТЕМ ===========
