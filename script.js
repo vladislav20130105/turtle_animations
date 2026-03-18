@@ -1,0 +1,429 @@
+const codeExamples = {
+    spiral: `import turtle
+
+# Настройки
+screen = turtle.Screen()
+screen.setup(width=800, height=800)
+t = turtle.Turtle()
+t.speed(0)
+t.pensize(2)
+
+# Рисуем спираль
+colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8']
+for i in range(100):
+    t.pencolor(colors[i % 5])
+    t.forward(i * 2)
+    t.right(75)
+
+screen.exitonclick()`,
+
+    circles: `import turtle
+
+screen = turtle.Screen()
+screen.setup(width=800, height=800)
+screen.bgcolor('#1a1a2e')
+t = turtle.Turtle()
+t.speed(0)
+
+colors = ['#FF006E', '#FB5607', '#FFBE0B', '#8338EC', '#3A86FF', '#06FFA5']
+
+# Рисуем концентрические круги
+for i in range(len(colors)):
+    t.pencolor(colors[i])
+    t.pensize(3)
+    t.circle(100 - i * 15)
+    
+t.hideturtle()
+screen.exitonclick()`,
+
+    stars: `import turtle
+import math
+
+screen = turtle.Screen()
+screen.setup(width=800, height=800)
+t = turtle.Turtle()
+t.speed(0)
+
+def draw_star(size, color):
+    t.pencolor(color)
+    t.pensize(2)
+    for _ in range(5):
+        t.forward(size)
+        t.right(144)
+
+colors = ['#FF1493', '#00FA9A', '#00BFFF', '#FFD700', '#FF69B4', '#00CED1', '#32CD32', '#FF4500']
+
+# Рисуем 8 звёзд по кругу
+for i in range(8):
+    t.penup()
+    t.goto(0, 0)
+    t.setheading(i * 45)
+    t.forward(150)
+    draw_star(50, colors[i])
+
+t.hideturtle()
+screen.exitonclick()`,
+
+    flower: `import turtle
+
+screen = turtle.Screen()
+screen.setup(width=800, height=800)
+t = turtle.Turtle()
+t.speed(0)
+
+# Рисуем цветок с помощью кругов
+for i in range(36):
+    t.pencolor(['#FF69B4', '#FFB6C1', '#FF1493'][i % 3])
+    t.circle(100)
+    t.right(10)
+
+t.hideturtle()
+screen.exitonclick()`,
+
+    wave: `import turtle
+import math
+
+screen = turtle.Screen()
+screen.setup(width=1000, height=600)
+t = turtle.Turtle()
+t.speed(0)
+t.pensize(2)
+
+# Рисуем волну
+t.penup()
+t.goto(-400, 0)
+t.pendown()
+
+for x in range(-400, 400, 5):
+    y = 100 * math.sin(x / 50)
+    t.goto(x, y)
+
+t.hideturtle()
+screen.exitonclick()`,
+
+    polygons: `import turtle
+
+screen = turtle.Screen()
+screen.setup(width=800, height=800)
+t = turtle.Turtle()
+t.speed(0)
+
+colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B88B', '#52C0C0']
+
+# Рисуем вложенные многоугольники
+for sides in range(3, 13):
+    angle = 360 / sides
+    t.pencolor(colors[sides - 3])
+    t.pensize(2)
+    for _ in range(sides):
+        t.forward(120 - (sides - 3) * 8)
+        t.right(angle)
+    t.penup()
+    t.goto(0, 0)
+    t.pendown()
+    t.setheading(0)
+
+t.hideturtle()
+screen.exitonclick()`,
+
+    mandala: `import turtle
+
+screen = turtle.Screen()
+screen.setup(width=800, height=800)
+t = turtle.Turtle()
+t.speed(0)
+
+colors = ['#FF006E', '#FB5607', '#FFBE0B', '#8338EC', '#3A86FF', '#06FFA5']
+
+# Рисуем мандалу
+for i in range(36):
+    t.pencolor(colors[i % 6])
+    t.pensize(2)
+    
+    for _ in range(4):
+        t.forward(100)
+        t.right(90)
+    
+    t.right(10)
+
+t.hideturtle()
+screen.exitonclick()`,
+
+    tree: `import turtle
+
+def draw_tree(branch_len, t):
+    if branch_len > 5:
+        t.forward(branch_len)
+        t.right(20)
+        draw_tree(branch_len - 15, t)
+        t.left(40)
+        draw_tree(branch_len - 15, t)
+        t.right(20)
+        t.backward(branch_len)
+
+screen = turtle.Screen()
+screen.setup(width=800, height=800)
+t = turtle.Turtle()
+t.speed(0)
+t.penup()
+t.goto(0, -300)
+t.pendown()
+t.setheading(90)
+
+draw_tree(100, t)
+
+t.hideturtle()
+screen.exitonclick()`,
+
+    snowflake: `import turtle
+
+def draw_branch(length, t):
+    if length > 5:
+        t.forward(length)
+        t.right(60)
+        draw_branch(length / 1.5, t)
+        t.left(120)
+        draw_branch(length / 1.5, t)
+        t.right(60)
+        t.backward(length)
+
+screen = turtle.Screen()
+screen.setup(width=800, height=800)
+screen.bgcolor('#E0F4FF')
+t = turtle.Turtle()
+t.speed(0)
+t.pencolor('#0099FF')
+t.pensize(2)
+
+# Рисуем снежинку (6 ветвей)
+for i in range(6):
+    t.penup()
+    t.goto(0, 0)
+    t.setheading(i * 60)
+    t.pendown()
+    draw_branch(100, t)
+
+t.hideturtle()
+screen.exitonclick()`
+};
+
+function showCode(animationName) {
+    const modal = document.getElementById('codeModal');
+    const codeTitle = document.getElementById('codeTitle');
+    const codeContent = document.getElementById('codeContent');
+    
+    const titles = {
+        spiral: 'Спираль',
+        circles: 'Концентрические Круги',
+        stars: 'Звёзды',
+        flower: 'Цветок',
+        wave: 'Волна',
+        polygons: 'Многоугольники',
+        mandala: 'Мандала',
+        tree: 'Фрактальное Дерево',
+        snowflake: 'Снежинка'
+    };
+    
+    codeTitle.textContent = `Код: ${titles[animationName]}`;
+    codeContent.textContent = codeExamples[animationName];
+    
+    modal.style.display = 'block';
+}
+
+function closeCode() {
+    document.getElementById('codeModal').style.display = 'none';
+}
+
+function copyToClipboard() {
+    const codeContent = document.getElementById('codeContent').textContent;
+    navigator.clipboard.writeText(codeContent).then(() => {
+        showNotification('Код скопирован в буфер обмена! 📋', 'success');
+    }).catch(() => {
+        showNotification('Ошибка при копировании кода', 'error');
+    });
+}
+
+// Закрыть модаль при клике вне её
+window.onclick = function(event) {
+    const codeModal = document.getElementById('codeModal');
+    const addModal = document.getElementById('addAnimationModal');
+    const confirmModal = document.getElementById('confirmModal');
+    
+    if (event.target === codeModal) {
+        codeModal.style.display = 'none';
+    }
+    if (event.target === addModal) {
+        addModal.style.display = 'none';
+    }
+    if (event.target === confirmModal) {
+        confirmModal.style.display = 'none';
+    }
+}
+
+// =========== УПРАВЛЕНИЕ ФОРМОЙ ДОБАВЛЕНИЯ АНИМАЦИИ ===========
+
+function openAddForm() {
+    document.getElementById('addAnimationModal').style.display = 'block';
+}
+
+function closeAddForm() {
+    document.getElementById('addAnimationModal').style.display = 'none';
+    document.getElementById('animationForm').reset();
+}
+
+// Обработка отправки формы
+document.getElementById('animationForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('animName').value;
+    const icon = document.getElementById('animIcon').value;
+    const color = document.getElementById('animColor').value;
+    const description = document.getElementById('animDescription').value;
+    const code = document.getElementById('animCode').value;
+    
+    // Создаем уникальный ID для новой анимации
+    const id = 'custom_' + Date.now();
+    
+    // Сохраняем в localStorage
+    const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+    customAnimations[id] = {
+        name,
+        icon,
+        color,
+        description,
+        code
+    };
+    localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+    
+    // Добавляем код в глобальный объект
+    codeExamples[id] = code;
+    
+    // Создаем новую карточку и добавляем её в галерею
+    addCardToGallery(id, name, icon, color, description);
+    
+    // Закрываем форму
+    closeAddForm();
+    
+    showNotification('✅ Анимация успешно добавлена!', 'success');
+});
+
+// =========== СИСТЕМА УВЕДОМЛЕНИЙ ===========
+
+function showNotification(message, type = 'info', duration = 4000) {
+    const container = document.getElementById('notificationContainer');
+    
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    
+    const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️'
+    };
+    
+    notification.innerHTML = `
+        <span class="notification-icon">${icons[type]}</span>
+        <span class="notification-message">${message}</span>
+        <button class="notification-close" onclick="this.parentElement.remove()">×</button>
+    `;
+    
+    container.appendChild(notification);
+    
+    // Автоматически удаляем уведомление
+    if (duration > 0) {
+        setTimeout(() => {
+            notification.classList.add('removing');
+            setTimeout(() => {
+                notification.remove();
+            }, 300);
+        }, duration);
+    }
+}
+
+// =========== ДИАЛОГ ПОДТВЕРЖДЕНИЯ ===========
+
+function showConfirmDialog(title, message, onConfirm) {
+    const modal = document.getElementById('confirmModal');
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMessage').textContent = message;
+    
+    const yesBtn = document.getElementById('confirmYesBtn');
+    const noBtn = document.getElementById('confirmNoBtn');
+    
+    // Очищаем старые обработчики
+    yesBtn.onclick = null;
+    noBtn.onclick = null;
+    
+    // Устанавливаем новые обработчики
+    yesBtn.onclick = () => {
+        onConfirm();
+        modal.style.display = 'none';
+    };
+    
+    noBtn.onclick = () => {
+        modal.style.display = 'none';
+    };
+    
+    modal.style.display = 'block';
+}
+
+// Функция добавления новой карточки на сайт
+function addCardToGallery(id, name, icon, color, description) {
+    const gallery = document.querySelector('.gallery');
+    
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+        <div class="card-image">
+            <svg viewBox="0 0 400 300" preserveAspectRatio="none" class="svg-placeholder">
+                <rect width="400" height="300" fill="${color}"/>
+                <text x="200" y="150" text-anchor="middle" font-size="40" fill="white">${icon}</text>
+                <text x="200" y="190" text-anchor="middle" font-size="18" fill="white">${name}</text>
+            </svg>
+        </div>
+        <div class="card-content">
+            <h2>${name}</h2>
+            <p>${description}</p>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-code" onclick="showCode('${id}')">👁️ Посмотреть код</button>
+                <button class="btn-code" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);" onclick="deleteCustomAnimation('${id}')">🗑️ Удалить</button>
+            </div>
+        </div>
+    `;
+    
+    gallery.appendChild(card);
+}
+
+// Функция удаления пользовательской анимации
+function deleteCustomAnimation(id) {
+    showConfirmDialog(
+        'Удалить анимацию?',
+        'Эта анимация будет удалена безвозвратно.',
+        () => {
+            const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+            delete customAnimations[id];
+            localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+            
+            // Удаляем карточку со страницы
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(card => {
+                if (card.querySelector(`[onclick*="${id}"]`)) {
+                    card.remove();
+                }
+            });
+            
+            showNotification('✅ Анимация удалена!', 'success');
+        }
+    );
+}
+
+// Загружаем сохраненные анимации при загрузке страницы
+window.addEventListener('load', function() {
+    const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+    
+    Object.entries(customAnimations).forEach(([id, anim]) => {
+        codeExamples[id] = anim.code;
+        addCardToGallery(id, anim.name, anim.icon, anim.color, anim.description);
+    });
+});
