@@ -28,7 +28,23 @@ def init_db():
                       image_data TEXT,
                       created_at TIMESTAMP,
                       updated_at TIMESTAMP)''')
+        # Таблица для отслеживания удаленных встроенных анимаций
+        c.execute('''CREATE TABLE hidden_animations
+                     (id TEXT PRIMARY KEY,
+                      hidden_at TIMESTAMP)''')
         conn.commit()
+        conn.close()
+    else:
+        # Проверяем есть ли таблица hidden_animations, если нет - создаем
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        try:
+            c.execute('SELECT * FROM hidden_animations LIMIT 1')
+        except:
+            c.execute('''CREATE TABLE hidden_animations
+                         (id TEXT PRIMARY KEY,
+                          hidden_at TIMESTAMP)''')
+            conn.commit()
         conn.close()
 
 def get_db_connection():
@@ -57,10 +73,16 @@ def serve_static(filename):
 
 @app.route('/api/animations', methods=['GET'])
 def get_animations():
-    """Получить все анимации"""
+    """Получить все анимации (исключая скрытые)"""
     try:
         conn = get_db_connection()
         c = conn.cursor()
+        
+        # Получаем список скрытых встроенных анимаций
+        c.execute('SELECT id FROM hidden_animations')
+        hidden = set(row['id'] for row in c.fetchall())
+        
+        # Получаем пользовательские анимации
         c.execute('SELECT * FROM animations ORDER BY created_at DESC')
         animations = c.fetchall()
         conn.close()
@@ -74,7 +96,49 @@ def get_animations():
                 'image': anim['image_data']
             }
         
+        # Добавляем встроенные анимации, кроме скрытых
+        builtin_codes = {
+            'spiral': {'title': 'Спираль', 'description': 'Геометрическая спираль с постоянно растущим размером'},
+            'circles': {'title': 'Концентрические Круги', 'description': 'Вложенные окружности с радужными цветами'},
+            'stars': {'title': 'Звёзды', 'description': '8 звёзд, расположенных по кругу'},
+            'flower': {'title': 'Цветок', 'description': 'Красивый цветок из вращающихся кругов'},
+            'wave': {'title': 'Волна', 'description': 'Плавная синусоидальная волна'},
+            'polygons': {'title': 'Многоугольники', 'description': 'Вложенные правильные многоугольники'},
+            'mandala': {'title': 'Мандала', 'description': 'Сложный симметричный узор'},
+            'tree': {'title': 'Фрактальное Дерево', 'description': 'Рекурсивное дерево с ветвями'},
+            'snowflake': {'title': 'Снежинка', 'description': 'Симметричная снежинка с кристаллическими ветвями'}
+        }
+        
+        # Список встроенных кодов (из script.js)
+        builtin_code_content = {
+            'spiral': 'import turtle\n\n# Настройки\nscreen = turtle.Screen()\nscreen.setup(width=800, height=800)\nt = turtle.Turtle()\nt.speed(0)\nt.pensize(2)\n\n# Рисуем спираль\ncolors = [\'#FF6B6B\', \'#4ECDC4\', \'#45B7D1\', \'#FFA07A\', \'#98D8C8\']\nfor i in range(100):\n    t.pencolor(colors[i % 5])\n    t.forward(i * 2)\n    t.right(75)\n\nscreen.exitonclick()',
+            # ... остальные коды в script.js
+        }
+        
+        for anim_id, info in builtin_codes.items():
+            if anim_id not in hidden:
+                result[anim_id] = {
+                    'title': info['title'],
+                    'description': info['description'],
+                    'code': f"# {info['title']} - см. скрипт для полного кода",
+                    'image': None
+                }
+        
         return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/hidden', methods=['GET'])
+def get_hidden_animations():
+    """Получить список скрытых анимаций"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute('SELECT id FROM hidden_animations')
+        hidden = [row['id'] for row in c.fetchall()]
+        conn.close()
+        
+        return jsonify({'hidden': hidden})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -103,11 +167,23 @@ def add_animation():
 
 @app.route('/api/animations/<animation_id>', methods=['DELETE'])
 def delete_animation(animation_id):
-    """Удалить анимацию"""
+    """Удалить анимацию или скрыть встроенную"""
     try:
+        # Список встроенных анимаций
+        builtin_animations = ['spiral', 'circles', 'stars', 'flower', 'wave', 'polygons', 'mandala', 'tree', 'snowflake']
+        
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute('DELETE FROM animations WHERE id = ?', (animation_id,))
+        
+        if animation_id in builtin_animations:
+            # Для встроенных анимаций - добавляем в hidden_animations
+            now = datetime.now().isoformat()
+            c.execute('INSERT OR REPLACE INTO hidden_animations (id, hidden_at) VALUES (?, ?)',
+                     (animation_id, now))
+        else:
+            # Для пользовательских - удаляем полностью
+            c.execute('DELETE FROM animations WHERE id = ?', (animation_id,))
+        
         conn.commit()
         conn.close()
         

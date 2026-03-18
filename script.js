@@ -247,12 +247,18 @@ function copyToClipboard() {
 
 async function loadAnimationsFromServer() {
     try {
+        // Получаем список скрытых анимаций
+        const hiddenResponse = await fetch('/api/hidden');
+        const hiddenData = hiddenResponse.ok ? await hiddenResponse.json() : { hidden: [] };
+        const hiddenSet = new Set(hiddenData.hidden);
+        
+        // Получаем анимации с сервера
         const response = await fetch('/api/animations');
         if (!response.ok) throw new Error('Failed to fetch animations');
         
         const animations = await response.json();
         
-        // Загружаем встроенные анимации
+        // Загружаем встроенные анимации (если не скрыты)
         const builtInAnimations = [
             { id: 'spiral', name: 'Спираль', icon: '🌀', color: '#FF6B6B', description: 'Геометрическая спираль с постоянно растущим размером' },
             { id: 'circles', name: 'Концентрические Круги', icon: '⭕', color: '#4ECDC4', description: 'Вложенные окружности с радужными цветами' },
@@ -265,15 +271,20 @@ async function loadAnimationsFromServer() {
             { id: 'snowflake', name: 'Снежинка', icon: '❄️', color: '#0099FF', description: 'Симметричная снежинка с кристаллическими ветвями' }
         ];
         
-        // Добавляем встроенные анимации
+        // Добавляем встроенные анимации (только не скрытые)
         builtInAnimations.forEach(anim => {
-            addCardToGallery(anim.id, anim.name, anim.icon, anim.color, anim.description);
+            if (!hiddenSet.has(anim.id)) {
+                addCardToGallery(anim.id, anim.name, anim.icon, anim.color, anim.description);
+            }
         });
         
-        // Добавляем загруженные анимации
+        // Добавляем загруженные пользовательские анимации
         Object.entries(animations).forEach(([id, anim]) => {
-            addCardToGallery(id, anim.title, '', anim.color || '#667eea', anim.description || '', anim.image);
-            codeExamples[id] = anim.code;
+            // Пропускаем встроенные (они уже добавлены)
+            if (!['spiral', 'circles', 'stars', 'flower', 'wave', 'polygons', 'mandala', 'tree', 'snowflake'].includes(id)) {
+                addCardToGallery(id, anim.title, '', anim.color || '#667eea', anim.description || '', anim.image);
+                codeExamples[id] = anim.code;
+            }
         });
         
     } catch (error) {
