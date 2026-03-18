@@ -693,10 +693,10 @@ function addCardToGallery(id, name, icon, color, description, imageData) {
     } else {
         // Иначе используем SVG с эмодзи
         imageHTML = `
-            <svg viewBox="0 0 400 300" preserveAspectRatio="none" class="svg-placeholder">
+            <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" class="svg-placeholder">
                 <rect width="400" height="300" fill="${color}"/>
-                <text x="200" y="150" text-anchor="middle" font-size="40" fill="white">${icon}</text>
-                <text x="200" y="190" text-anchor="middle" font-size="18" fill="white">${name}</text>
+                <text x="200" y="130" text-anchor="middle" font-size="50" fill="white" style="font-family: Arial, sans-serif;">${icon}</text>
+                <text x="200" y="170" text-anchor="middle" font-size="20" fill="white" style="font-family: Arial, sans-serif;">${name}</text>
             </svg>
         `;
     }
