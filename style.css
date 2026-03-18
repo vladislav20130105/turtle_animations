@@ -617,28 +617,184 @@ body.dark-theme .notification-close:hover {
     box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
 }
 
+/* Улучшения для touch-устройств */
+.btn-code,
+.btn-copy,
+.btn-submit,
+.btn-theme,
+.btn-admin,
+.btn-add-animation,
+.btn-confirm-yes,
+.btn-confirm-no,
+.btn-logout,
+.close {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+
+.card {
+    touch-action: manipulation;
+}
+
+.modal-content {
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Убираем hover эффекты на touch-устройствах */
+@media (hover: none) and (pointer: coarse) {
+    .card:hover {
+        transform: none;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn-code:hover,
+    .btn-copy:hover,
+    .btn-submit:hover,
+    .btn-theme:hover,
+    .btn-admin:hover,
+    .btn-add-animation:hover,
+    .btn-confirm-yes:hover,
+    .btn-confirm-no:hover {
+        transform: none;
+    }
+    
+    .card:hover .card-image img {
+        transform: none;
+    }
+}
+
 /* Адаптивный дизайн */
 @media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+
+    header {
+        padding: 20px 10px;
+        margin-bottom: 30px;
+    }
+
+    .header-top {
+        flex-direction: column;
+        gap: 15px;
+    }
+
     header h1 {
-        font-size: 2em;
+        font-size: 1.8em;
+        margin-bottom: 8px;
+    }
+
+    .subtitle {
+        font-size: 1em;
+        margin-bottom: 15px;
     }
 
     .gallery {
         grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .card {
+        border-radius: 12px;
+    }
+
+    .card-image {
+        height: 200px;
+    }
+
+    .card-content {
+        padding: 20px;
+    }
+
+    .card-content h2 {
+        font-size: 1.3em;
+    }
+
+    .btn-code {
+        padding: 14px 20px;
+        font-size: 1.1em;
+        min-height: 48px;
     }
 
     .modal-content {
         width: 95%;
-        margin: 10% auto;
+        margin: 5% auto;
+        padding: 20px;
+        max-height: 90vh;
     }
 
     .notification-container {
         right: 10px;
         left: 10px;
+        top: 10px;
     }
 
     .notification {
         min-width: unset;
         width: 100%;
+        padding: 14px 16px;
+    }
+
+    .btn-theme,
+    .btn-admin,
+    .btn-add-animation {
+        padding: 12px 16px;
+        font-size: 1em;
+        min-height: 44px;
+        touch-action: manipulation;
+    }
+}
+
+@media (max-width: 480px) {
+    header h1 {
+        font-size: 1.5em;
+    }
+
+    .subtitle {
+        font-size: 0.9em;
+    }
+
+    .card-image {
+        height: 160px;
+    }
+
+    .card-content {
+        padding: 15px;
+    }
+
+    .modal-content {
+        width: 98%;
+        margin: 2% auto;
+        padding: 15px;
+        border-radius: 8px;
+    }
+
+    .form-group input[type="text"],
+    .form-group input[type="color"],
+    .form-group input[type="file"],
+    .form-group textarea {
+        padding: 12px;
+        font-size: 16px;
+        min-height: 44px;
+    }
+
+    .btn-submit {
+        padding: 16px 24px;
+        font-size: 1.1em;
+        width: 100%;
+        min-height: 48px;
+    }
+
+    .confirm-buttons {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .btn-confirm-yes,
+    .btn-confirm-no {
+        width: 100%;
+        padding: 14px 20px;
+        min-height: 48px;
     }
 }

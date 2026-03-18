@@ -243,6 +243,39 @@ function copyToClipboard() {
     });
 }
 
+// =========== ОПТИМИЗАЦИЯ ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ ===========
+
+// Определяем, мобильное ли устройство
+function isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+           (window.innerWidth <= 768 && 'ontouchstart' in window);
+}
+
+// Добавляем мобильные оптимизации при загрузке
+document.addEventListener('DOMContentLoaded', function() {
+    if (isMobileDevice()) {
+        // Добавляем класс для мобильных стилей
+        document.body.classList.add('mobile-device');
+        
+        // Оптимизация скролла для мобильных
+        document.addEventListener('touchmove', function(e) {
+            if (e.target.closest('.modal-content')) {
+                e.stopPropagation();
+            }
+        }, { passive: false });
+        
+        // Предотвращаем двойной тап для zoom
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function(e) {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                e.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+    }
+});
+
 // =========== ЗАГРУЗКА ДАННЫХ С СЕРВЕРА ===========
 
 async function loadAnimationsFromServer() {
@@ -606,12 +639,15 @@ function showNotification(message, type = 'info', duration = 4000) {
     
     // Автоматически удаляем уведомление
     if (duration > 0) {
+        // На мобильных устройствах показываем уведомления дольше
+        const mobileDuration = isMobileDevice() ? duration * 1.5 : duration;
+        
         setTimeout(() => {
             notification.classList.add('removing');
             setTimeout(() => {
                 notification.remove();
             }, 300);
-        }, duration);
+        }, mobileDuration);
     }
 }
 
