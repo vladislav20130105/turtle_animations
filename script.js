@@ -248,6 +248,8 @@ window.onclick = function(event) {
     const codeModal = document.getElementById('codeModal');
     const addModal = document.getElementById('addAnimationModal');
     const confirmModal = document.getElementById('confirmModal');
+    const adminLoginModal = document.getElementById('adminLoginModal');
+    const adminPanelModal = document.getElementById('adminPanelModal');
     
     if (event.target === codeModal) {
         codeModal.style.display = 'none';
@@ -258,11 +260,149 @@ window.onclick = function(event) {
     if (event.target === confirmModal) {
         confirmModal.style.display = 'none';
     }
+    if (event.target === adminLoginModal) {
+        adminLoginModal.style.display = 'none';
+    }
+    if (event.target === adminPanelModal) {
+        adminPanelModal.style.display = 'none';
+    }
+}
+
+// =========== АДМИНКА ===========
+
+const ADMIN_CODE = '76559165613751510';
+
+function openAdminLogin() {
+    const isAdmin = localStorage.getItem('isAdmin') === 'true';
+    if (isAdmin) {
+        openAdminPanel();
+    } else {
+        document.getElementById('adminLoginModal').style.display = 'block';
+    }
+}
+
+function closeAdminLogin() {
+    document.getElementById('adminLoginModal').style.display = 'none';
+}
+
+document.getElementById('adminLoginForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const code = document.getElementById('adminCode').value;
+    
+    if (code === ADMIN_CODE) {
+        localStorage.setItem('isAdmin', 'true');
+        closeAdminLogin();
+        openAdminPanel();
+        showNotification('✅ Вы вошли в админку!', 'success');
+    } else {
+        showNotification('❌ Неверный код доступа!', 'error');
+        document.getElementById('adminCode').value = '';
+    }
+});
+
+function openAdminPanel() {
+    const adminList = document.getElementById('adminAnimsList');
+    const totalCount = document.getElementById('totalAnimations');
+    
+    const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+    totalCount.textContent = Object.keys(customAnimations).length;
+    
+    adminList.innerHTML = '';
+    
+    if (Object.keys(customAnimations).length === 0) {
+        adminList.innerHTML = '<p style="color: var(--text-color); text-align: center; padding: 20px;">Нет добавленных анимаций</p>';
+    } else {
+        Object.entries(customAnimations).forEach(([id, anim]) => {
+            const item = document.createElement('div');
+            item.className = 'admin-anim-item';
+            item.innerHTML = `
+                <div>
+                    <strong>${anim.name}</strong>
+                    <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">ID: ${id}</p>
+                </div>
+                <button class="btn-code" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);" onclick="adminDeleteAnimation('${id}')">🗑️</button>
+            `;
+            adminList.appendChild(item);
+        });
+    }
+    
+    // Показываем кнопку добавления
+    updateAdminUI();
+    document.getElementById('adminPanelModal').style.display = 'block';
+}
+
+function closeAdminPanel() {
+    document.getElementById('adminPanelModal').style.display = 'none';
+}
+
+function adminDeleteAnimation(id) {
+    showConfirmDialog(
+        'Удалить анимацию?',
+        'Эта анимация будет удалена безвозвратно.',
+        () => {
+            const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+            delete customAnimations[id];
+            localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+            
+            // Удаляем карточку со страницы
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(card => {
+                if (card.querySelector(`[onclick*="${id}"]`)) {
+                    card.remove();
+                }
+            });
+            
+            // Перезагружаем админ-панель
+            openAdminPanel();
+            showNotification('✅ Анимация удалена из админки!', 'success');
+        }
+    );
+}
+
+function logoutAdmin() {
+    localStorage.setItem('isAdmin', 'false');
+    closeAdminPanel();
+    updateAdminUI();
+    showNotification('👋 Вы вышли из админки', 'info');
+}
+
+// =========== УПРАВЛЕНИЕ АДМИН UI ===========
+
+function updateAdminUI() {
+    const isAdmin = localStorage.getItem('isAdmin') === 'true';
+    const btnAdd = document.getElementById('btnAddAnimation');
+    
+    if (isAdmin) {
+        btnAdd.style.display = 'block';
+    } else {
+        btnAdd.style.display = 'none';
+    }
+    
+    // Обновляем видимость кнопок удаления на карточках
+    updateDeleteButtons();
+}
+
+function updateDeleteButtons() {
+    const isAdmin = localStorage.getItem('isAdmin') === 'true';
+    const deleteButtons = document.querySelectorAll('[onclick*="deleteCustomAnimation"]');
+    
+    deleteButtons.forEach(btn => {
+        if (isAdmin) {
+            btn.style.display = 'inline-block';
+        } else {
+            btn.style.display = 'none';
+        }
+    });
 }
 
 // =========== УПРАВЛЕНИЕ ФОРМОЙ ДОБАВЛЕНИЯ АНИМАЦИИ ===========
 
 function openAddForm() {
+    const isAdmin = localStorage.getItem('isAdmin') === 'true';
+    if (!isAdmin) {
+        showNotification('❌ Только админ может добавлять анимации!', 'error');
+        return;
+    }
     document.getElementById('addAnimationModal').style.display = 'block';
 }
 
@@ -280,31 +420,64 @@ document.getElementById('animationForm')?.addEventListener('submit', function(e)
     const color = document.getElementById('animColor').value;
     const description = document.getElementById('animDescription').value;
     const code = document.getElementById('animCode').value;
+    const imageFile = document.getElementById('animImage').files[0];
     
     // Создаем уникальный ID для новой анимации
     const id = 'custom_' + Date.now();
     
-    // Сохраняем в localStorage
-    const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
-    customAnimations[id] = {
-        name,
-        icon,
-        color,
-        description,
-        code
-    };
-    localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
-    
-    // Добавляем код в глобальный объект
-    codeExamples[id] = code;
-    
-    // Создаем новую карточку и добавляем её в галерею
-    addCardToGallery(id, name, icon, color, description);
-    
-    // Закрываем форму
-    closeAddForm();
-    
-    showNotification('✅ Анимация успешно добавлена!', 'success');
+    // Если выбран файл - конвертируем его в base64
+    if (imageFile) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const imageData = event.target.result;
+            
+            // Сохраняем в localStorage с изображением
+            const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+            customAnimations[id] = {
+                name,
+                icon: '',
+                color,
+                description,
+                code,
+                image: imageData
+            };
+            localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+            
+            // Добавляем код в глобальный объект
+            codeExamples[id] = code;
+            
+            // Создаем новую карточку и добавляем её в галерею
+            addCardToGallery(id, name, '', color, description, imageData);
+            
+            // Закрываем форму
+            closeAddForm();
+            
+            showNotification('✅ Анимация успешно добавлена!', 'success');
+        };
+        reader.readAsDataURL(imageFile);
+    } else {
+        // Без изображения - используем текст/эмодзи
+        const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+        customAnimations[id] = {
+            name,
+            icon,
+            color,
+            description,
+            code
+        };
+        localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+        
+        // Добавляем код в глобальный объект
+        codeExamples[id] = code;
+        
+        // Создаем новую карточку и добавляем её в галерею
+        addCardToGallery(id, name, icon, color, description);
+        
+        // Закрываем форму
+        closeAddForm();
+        
+        showNotification('✅ Анимация успешно добавлена!', 'success');
+    }
 });
 
 // =========== СИСТЕМА УВЕДОМЛЕНИЙ ===========
@@ -369,25 +542,38 @@ function showConfirmDialog(title, message, onConfirm) {
 }
 
 // Функция добавления новой карточки на сайт
-function addCardToGallery(id, name, icon, color, description) {
+function addCardToGallery(id, name, icon, color, description, imageData) {
     const gallery = document.querySelector('.gallery');
+    const isAdmin = localStorage.getItem('isAdmin') === 'true';
     
     const card = document.createElement('div');
     card.className = 'card';
-    card.innerHTML = `
-        <div class="card-image">
+    
+    let imageHTML = '';
+    if (imageData) {
+        // Если есть загруженное изображение - используем его
+        imageHTML = `<img src="${imageData}" alt="${name}" style="width: 100%; height: 100%; object-fit: cover;">`;
+    } else {
+        // Иначе используем SVG с эмодзи
+        imageHTML = `
             <svg viewBox="0 0 400 300" preserveAspectRatio="none" class="svg-placeholder">
                 <rect width="400" height="300" fill="${color}"/>
                 <text x="200" y="150" text-anchor="middle" font-size="40" fill="white">${icon}</text>
                 <text x="200" y="190" text-anchor="middle" font-size="18" fill="white">${name}</text>
             </svg>
+        `;
+    }
+    
+    card.innerHTML = `
+        <div class="card-image">
+            ${imageHTML}
         </div>
         <div class="card-content">
             <h2>${name}</h2>
             <p>${description}</p>
             <div style="display: flex; gap: 10px;">
                 <button class="btn-code" onclick="showCode('${id}')">👁️ Посмотреть код</button>
-                <button class="btn-code" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);" onclick="deleteCustomAnimation('${id}')">🗑️ Удалить</button>
+                <button class="btn-code" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%); display: ${isAdmin ? 'inline-block' : 'none'};" onclick="deleteCustomAnimation('${id}')">🗑️ Удалить</button>
             </div>
         </div>
     `;
@@ -397,6 +583,12 @@ function addCardToGallery(id, name, icon, color, description) {
 
 // Функция удаления пользовательской анимации
 function deleteCustomAnimation(id) {
+    const isAdmin = localStorage.getItem('isAdmin') === 'true';
+    if (!isAdmin) {
+        showNotification('❌ Только админ может удалять анимации!', 'error');
+        return;
+    }
+    
     showConfirmDialog(
         'Удалить анимацию?',
         'Эта анимация будет удалена безвозвратно.',
@@ -420,10 +612,46 @@ function deleteCustomAnimation(id) {
 
 // Загружаем сохраненные анимации при загрузке страницы
 window.addEventListener('load', function() {
+    // Загружаем тему
+    loadTheme();
+    
     const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
     
     Object.entries(customAnimations).forEach(([id, anim]) => {
         codeExamples[id] = anim.code;
-        addCardToGallery(id, anim.name, anim.icon, anim.color, anim.description);
+        addCardToGallery(id, anim.name, anim.icon, anim.color, anim.description, anim.image);
     });
 });
+
+// =========== СИСТЕМА ТЕМ ===========
+
+function toggleTheme() {
+    const isDark = document.body.classList.contains('dark-theme');
+    const btn = document.querySelector('.btn-theme');
+    
+    if (isDark) {
+        document.body.classList.remove('dark-theme');
+        localStorage.setItem('theme', 'light');
+        btn.textContent = '🌙 Тёмный режим';
+    } else {
+        document.body.classList.add('dark-theme');
+        localStorage.setItem('theme', 'dark');
+        btn.textContent = '☀️ Светлый режим';
+    }
+}
+
+function loadTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    const btn = document.querySelector('.btn-theme');
+    
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark-theme');
+        btn.textContent = '☀️ Светлый режим';
+    } else {
+        document.body.classList.remove('dark-theme');
+        btn.textContent = '🌙 Тёмный режим';
+    }
+    
+    // Обновляем видимость кнопки добавления
+    updateAdminUI();
+}

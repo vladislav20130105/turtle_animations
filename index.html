@@ -8,12 +8,18 @@
 </head>
 <body>
     <header>
-        <h1>🐢 Выставка Turtle Анимаций</h1>
+        <div class="header-top">
+            <h1>🐢 Выставка Turtle Анимаций</h1>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <button id="btnAddAnimation" class="btn-add-animation" onclick="openAddForm()" style="display: none; margin: 0;">➕ Добавить</button>
+                <button class="btn-theme" onclick="toggleTheme()">🌙 Тёмный режим</button>
+                <button class="btn-admin" onclick="openAdminLogin()">🔐 Админ</button>
+            </div>
+        </div>
         <p class="subtitle">Красивые графические демонстрации с помощью Python Turtle</p>
         <p style="font-size: 0.9em; opacity: 0.8; margin-top: 10px;">
             💡 Совет: Запустите <code style="background:rgba(255,255,255,0.2); padding:2px 6px; border-radius:3px;">python setup.py</code> для создания полноценных изображений
         </p>
-        <button class="btn-add-animation" onclick="openAddForm()">➕ Добавить анимацию</button>
     </header>
 
     <main>
@@ -47,6 +53,11 @@
                     <input type="text" id="animIcon" placeholder="🌀" maxlength="2" required>
                 </div>
                 <div class="form-group">
+                    <label for="animImage">Или загрузи свою картинку:</label>
+                    <input type="file" id="animImage" accept="image/*">
+                    <small style="color: var(--text-color); opacity: 0.7;">Если выберешь картинку, иконка не понадобится</small>
+                </div>
+                <div class="form-group">
                     <label for="animColor">Цвет фона:</label>
                     <input type="color" id="animColor" value="#667eea" required>
                 </div>
@@ -75,15 +86,36 @@
         </div>
     </div>
 
+    <!-- Модальное окно для входа в админку -->
+    <div id="adminLoginModal" class="modal">
+        <div class="modal-content admin-login">
+            <span class="close" onclick="closeAdminLogin()">&times;</span>
+            <h2>🔐 Вход в админку</h2>
+            <form id="adminLoginForm">
+                <div class="form-group">
+                    <label for="adminCode">Введи код доступа:</label>
+                    <input type="password" id="adminCode" placeholder="Сюда вводи код" required>
+                </div>
+                <button type="submit" class="btn-submit">Войти</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно админки -->
+    <div id="adminPanelModal" class="modal">
+        <div class="modal-content admin-panel">
+            <span class="close" onclick="closeAdminPanel()">&times;</span>
+            <h2>👨‍💼 Админ-панель</h2>
+            <button class="btn-logout" onclick="logoutAdmin()">🚪 Выйти</button>
+            <div class="admin-stats">
+                <p>Всего анимаций: <strong id="totalAnimations">0</strong></p>
+            </div>
+            <div id="adminAnimsList" class="admin-animations-list"></div>
+        </div>
+    </div>
+
     <!-- Контейнер для уведомлений -->
     <div id="notificationContainer" class="notification-container"></div>
-
-    <footer>
-        <p>✨ Создано для демонстрации возможностей Python Turtle Graphics</p>
-        <p style="font-size: 0.9em; margin-top: 10px; opacity: 0.8;">
-            Для замены плейсхолдеров на реальные изображения: <code>python setup.py</code>
-        </p>
-    </footer>
 
     <script src="script.js"></script>
 </body>
