@@ -299,68 +299,6 @@ async function loadAnimationsFromServer() {
         console.log('Анимаций в localStorage до синхронизации:', Object.keys(customAnimations).length);
         let hasChanges = false;
         
-        // Добавляем серверные анимации в localStorage (но не удаляем локальные)
-        Object.entries(animations).forEach(([id, anim]) => {
-            // Пропускаем встроенные
-            if (!['spiral', 'circles', 'stars', 'flower', 'wave', 'polygons', 'mandala', 'tree', 'snowflake'].includes(id)) {
-                if (!customAnimations[id]) {
-                    console.log('Добавляю новую анимацию с сервера:', id);
-                    customAnimations[id] = {
-                        name: anim.title,
-                        icon: anim.icon || '',
-                        color: anim.color || '#667eea',
-                        description: anim.description || '',
-                        code: anim.code,
-                        image: anim.image
-                    };
-                    hasChanges = true;
-                }
-            }
-        });
-        
-        // Сохраняем объединенные данные обратно в localStorage
-        if (hasChanges) {
-            localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
-            console.log('Добавлены новые анимации с сервера');
-        }
-        
-        // Теперь отправляем локальные анимации которых нет на сервере
-        const serverIds = new Set(Object.keys(animations));
-        const localIds = new Set(Object.keys(customAnimations));
-        
-        // Находим локальные анимации которых нет на сервере
-        const missingOnServer = [...localIds].filter(id => 
-            !serverIds.has(id) && !['spiral', 'circles', 'stars', 'flower', 'wave', 'polygons', 'mandala', 'tree', 'snowflake'].includes(id)
-        );
-        
-        // Отправляем отсутствующие анимации на сервер
-        if (missingOnServer.length > 0) {
-            console.log('Отправляем анимации на сервер:', missingOnServer);
-            missingOnServer.forEach(async (id) => {
-                const anim = customAnimations[id];
-                try {
-                    await fetch('/api/animations', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            id,
-                            title: anim.name,
-                            description: anim.description,
-                            code: anim.code,
-                            color: anim.color,
-                            image: anim.image,
-                            icon: anim.icon
-                        })
-                    });
-                    console.log('Отправлена анимация:', id);
-                } catch (error) {
-                    console.log('Не удалось отправить анимацию:', id);
-                }
-            });
-        }
-        
-        console.log('Итоговое количество анимаций в localStorage:', Object.keys(customAnimations).length);
-        
         // Загружаем встроенные анимации (если не скрыты)
         const builtInAnimations = [
             { id: 'spiral', name: 'Спираль', icon: '🌀', color: '#FF6B6B', description: 'Геометрическая спираль с постоянно растущим размером' },
@@ -382,11 +320,33 @@ async function loadAnimationsFromServer() {
             }
         });
         
-        // Добавляем все анимации из localStorage (включая синхронизированные)
+        // Добавляем все анимации из localStorage (только их)
         Object.entries(customAnimations).forEach(([id, anim]) => {
             console.log('Добавляю анимацию из localStorage:', id);
             addCardToGallery(id, anim.name, anim.icon, anim.color, anim.description, anim.image);
             codeExamples[id] = anim.code;
+        });
+        
+        // Теперь добавляем только те серверные анимации которых нет в localStorage
+        Object.entries(animations).forEach(([id, anim]) => {
+            // Пропускаем встроенные и те что уже есть в localStorage
+            if (!['spiral', 'circles', 'stars', 'flower', 'wave', 'polygons', 'mandala', 'tree', 'snowflake'].includes(id) && 
+                !customAnimations[id]) {
+                console.log('Добавляю новую анимацию с сервера:', id);
+                customAnimations[id] = {
+                    name: anim.title,
+                    icon: anim.icon || '',
+                    color: anim.color || '#667eea',
+                    description: anim.description || '',
+                    code: anim.code,
+                    image: anim.image
+                };
+                hasChanges = true;
+                
+                // Добавляем на страницу
+                addCardToGallery(id, anim.title, anim.icon || '', anim.color || '#667eea', anim.description || '', anim.image);
+                codeExamples[id] = anim.code;
+            }
         });
         
         console.log('Загрузка завершена');
