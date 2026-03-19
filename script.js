@@ -333,6 +333,7 @@ async function loadAnimationsFromServer() {
             if (!['spiral', 'circles', 'stars', 'flower', 'wave', 'polygons', 'mandala', 'tree', 'snowflake'].includes(id)) {
                 if (!customAnimations[id]) {
                     console.log('Добавляю новую анимацию с сервера:', id);
+                    console.log('Данные с сервера:', anim);
                     customAnimations[id] = {
                         name: anim.title,
                         icon: anim.icon || '',
@@ -646,7 +647,7 @@ document.getElementById('animationForm')?.addEventListener('submit', async funct
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            id, title: name, description, code, color, image: imageData
+                            id, title: name, description, code, color, image: imageData, icon: ''
                         })
                     }).then(response => {
                         if (response.ok) {
@@ -689,7 +690,7 @@ document.getElementById('animationForm')?.addEventListener('submit', async funct
                 fetch('/api/animations', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id, title: name, description, code, color })
+                    body: JSON.stringify({ id, title: name, description, code, color, icon })
                 });
             } catch (error) {
                 console.log('Server save failed, but localStorage saved');
@@ -746,6 +747,7 @@ function adminDeleteAnimation(id) {
             const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
             delete customAnimations[id];
             localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+            console.log('Удалено из localStorage:', id);
             
             // Удаляем карточку со страницы
             const cards = document.querySelectorAll('.card');
@@ -768,8 +770,31 @@ function adminDeleteAnimation(id) {
                     console.log('Сервер недоступен, но удалено локально');
                 });
             
-            // Перезагружаем админ-панель
-            openAdminPanel();
+            // Сразу обновляем админ-панель чтобы показать изменения
+            const adminList = document.getElementById('adminAnimsList');
+            adminList.innerHTML = '';
+            
+            const updatedAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+            if (Object.keys(updatedAnimations).length === 0) {
+                adminList.innerHTML = '<p style="color: var(--text-color); text-align: center; padding: 20px;">Нет добавленных анимаций</p>';
+            } else {
+                Object.entries(updatedAnimations).forEach(([animId, anim]) => {
+                    const item = document.createElement('div');
+                    item.className = 'admin-anim-item';
+                    item.innerHTML = `
+                        <div>
+                            <strong>${anim.name}</strong>
+                            <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">ID: ${animId}</p>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn-code" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);" onclick="editAnimation('${animId}')">✏️</button>
+                            <button class="btn-code" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);" onclick="adminDeleteAnimation('${animId}')">🗑️</button>
+                        </div>
+                    `;
+                    adminList.appendChild(item);
+                });
+            }
+            
             showNotification('✅ Анимация удалена со всех устройств!', 'success');
         }
     );
