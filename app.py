@@ -165,6 +165,27 @@ def add_animation():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/animations/<animation_id>', methods=['PUT'])
+def update_animation(animation_id):
+    """Обновить анимацию"""
+    try:
+        data = request.get_json()
+        
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        c.execute('''UPDATE animations 
+                     SET title = ?, description = ?, code = ?, updated_at = ?
+                     WHERE id = ?''',
+                 (data.get('title'), data.get('description'), data.get('code'), datetime.now(), animation_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Анимация обновлена'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/animations/<animation_id>', methods=['DELETE'])
 def delete_animation(animation_id):
     """Удалить анимацию или скрыть встроенную"""

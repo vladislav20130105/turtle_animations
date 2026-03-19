@@ -388,11 +388,11 @@ document.getElementById('adminLoginForm')?.addEventListener('submit', function(e
     }
 });
 
-function openAdminPanel() {
+async function openAdminPanel() {
     const adminList = document.getElementById('adminAnimsList');
     const totalCount = document.getElementById('totalAnimations');
     
-    // Загружаем из localStorage + встроенные
+    // Всегда используем localStorage
     const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
     totalCount.textContent = Object.keys(customAnimations).length;
     
@@ -409,7 +409,10 @@ function openAdminPanel() {
                     <strong>${anim.name}</strong>
                     <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">ID: ${id}</p>
                 </div>
-                <button class="btn-code" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);" onclick="adminDeleteAnimation('${id}')">🗑️</button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-code" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);" onclick="editAnimation('${id}')">✏️</button>
+                    <button class="btn-code" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);" onclick="adminDeleteAnimation('${id}')">🗑️</button>
+                </div>
             `;
             adminList.appendChild(item);
         });
@@ -424,11 +427,170 @@ function closeAdminPanel() {
     document.getElementById('adminPanelModal').style.display = 'none';
 }
 
+function editAnimation(id) {
+    const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+    const anim = customAnimations[id];
+    
+    if (!anim) {
+        showNotification('❌ Анимация не найдена!', 'error');
+        return;
+    }
+    
+    // Заполняем форму данными анимации
+    document.getElementById('animName').value = anim.name;
+    document.getElementById('animIcon').value = anim.icon || '';
+    document.getElementById('animColor').value = anim.color;
+    document.getElementById('animDescription').value = anim.description;
+    document.getElementById('animCode').value = anim.code;
+    
+    // Меняем заголовок формы
+    document.querySelector('#addAnimationModal h2').textContent = '✏️ Редактировать анимацию';
+    
+    // Сохраняем ID редактируемой анимации
+    document.getElementById('animationForm').setAttribute('data-edit-id', id);
+    
+    // Показываем форму
+    document.getElementById('addAnimationModal').style.display = 'block';
+}
+
+// Обновляем обработчик формы для поддержки редактирования
+document.getElementById('animationForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const editId = this.getAttribute('data-edit-id');
+    const name = document.getElementById('animName').value;
+    const icon = document.getElementById('animIcon').value;
+    const color = document.getElementById('animColor').value;
+    const description = document.getElementById('animDescription').value;
+    const code = document.getElementById('animCode').value;
+    
+    if (editId) {
+        // Режим редактирования - обновляем в localStorage
+        const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+        customAnimations[editId] = { name, icon, color, description, code };
+        localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+        
+        // Обновляем карточку на странице
+        updateCardOnPage(editId, name, icon, color, description);
+        
+        // Обновляем код
+        codeExamples[editId] = code;
+        
+        // Пытаемся сохранить на сервере (но не обязательно)
+        try {
+            await fetch(`/api/animations/${editId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: name, description, code })
+            });
+        } catch (error) {
+            console.log('Server update failed, but localStorage updated');
+        }
+        
+        showNotification('✅ Анимация обновлена!', 'success');
+    } else {
+        // Режим добавления - сначала сохраняем в localStorage
+        const imageFile = document.getElementById('animImage').files[0];
+        
+        // Создаем уникальный ID для новой анимации
+        const id = 'custom_' + Date.now();
+        
+        // Сохраняем в localStorage сразу
+        const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+        const animData = { name, icon, color, description, code };
+        
+        if (imageFile) {
+            // Если есть файл - конвертируем и сохраняем
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const imageData = event.target.result;
+                animData.image = imageData;
+                customAnimations[id] = animData;
+                localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+                
+                // Добавляем на страницу
+                addCardToGallery(id, name, '', color, description, imageData);
+                codeExamples[id] = code;
+                
+                // Пытаемся сохранить на сервере
+                try {
+                    fetch('/api/animations', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            id, title: name, description, code, color, image: imageData
+                        })
+                    });
+                } catch (error) {
+                    console.log('Server save failed, but localStorage saved');
+                }
+                
+                closeAddForm();
+                showNotification('✅ Анимация добавлена!', 'success');
+            };
+            reader.readAsDataURL(imageFile);
+        } else {
+            // Без изображения
+            customAnimations[id] = animData;
+            localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+            
+            // Добавляем на страницу
+            addCardToGallery(id, name, icon, color, description);
+            codeExamples[id] = code;
+            
+            // Пытаемся сохранить на сервере
+            try {
+                fetch('/api/animations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, title: name, description, code, color })
+                });
+            } catch (error) {
+                console.log('Server save failed, but localStorage saved');
+            }
+            
+            closeAddForm();
+            showNotification('✅ Анимация добавлена!', 'success');
+        }
+    }
+    
+    // Сбрасываем форму
+    this.removeAttribute('data-edit-id');
+    document.querySelector('#addAnimationModal h2').textContent = '➕ Добавить новую анимацию';
+    this.reset();
+    closeAddForm();
+});
+
+function updateCardOnPage(id, name, icon, color, description) {
+    const cards = document.querySelectorAll('.card');
+    cards.forEach(card => {
+        const codeBtn = card.querySelector(`[onclick*="${id}"]`);
+        if (codeBtn) {
+            // Обновляем заголовок и описание
+            card.querySelector('h2').textContent = name;
+            card.querySelector('p').textContent = description;
+            
+            // Обновляем изображение если нужно
+            const imageContainer = card.querySelector('.card-image');
+            if (imageContainer && !imageContainer.querySelector('img')) {
+                imageContainer.innerHTML = `
+                    <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" class="svg-placeholder">
+                        <rect width="400" height="300" fill="${color}"/>
+                        <text x="200" y="130" text-anchor="middle" font-size="50" fill="white" style="font-family: Arial, sans-serif;">${icon}</text>
+                        <text x="200" y="170" text-anchor="middle" font-size="20" fill="white" style="font-family: Arial, sans-serif;">${name}</text>
+                    </svg>
+                `;
+            }
+        }
+    });
+}
+
 function adminDeleteAnimation(id) {
     showConfirmDialog(
         'Удалить анимацию?',
         'Эта анимация будет удалена безвозвратно.',
         () => {
+            // Удаляем из localStorage
             const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
             delete customAnimations[id];
             localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
@@ -441,9 +603,16 @@ function adminDeleteAnimation(id) {
                 }
             });
             
+            // Пытаемся удалить с сервера
+            try {
+                fetch(`/api/animations/${id}`, { method: 'DELETE' });
+            } catch (error) {
+                console.log('Server delete failed, but localStorage updated');
+            }
+            
             // Перезагружаем админ-панель
             openAdminPanel();
-            showNotification('✅ Анимация удалена из админки!', 'success');
+            showNotification('✅ Анимация удалена!', 'success');
         }
     );
 }
@@ -499,120 +668,6 @@ function closeAddForm() {
     document.getElementById('addAnimationModal').style.display = 'none';
     document.getElementById('animationForm').reset();
 }
-
-// Обработка отправки формы
-document.getElementById('animationForm')?.addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const name = document.getElementById('animName').value;
-    const icon = document.getElementById('animIcon').value;
-    const color = document.getElementById('animColor').value;
-    const description = document.getElementById('animDescription').value;
-    const code = document.getElementById('animCode').value;
-    const imageFile = document.getElementById('animImage').files[0];
-    
-    // Создаем уникальный ID для новой анимации
-    const id = 'custom_' + Date.now();
-    
-    // Если выбран файл - конвертируем его в base64
-    if (imageFile) {
-        const reader = new FileReader();
-        reader.onload = async function(event) {
-            const imageData = event.target.result;
-            
-            // Отправляем на сервер
-            try {
-                const response = await fetch('/api/animations', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id,
-                        title: name,
-                        description,
-                        code,
-                        color,
-                        image: imageData
-                    })
-                });
-                
-                if (response.ok) {
-                    // Добавляем код в глобальный объект
-                    codeExamples[id] = code;
-                    
-                    // Создаем новую карточку и добавляем её в галерею
-                    addCardToGallery(id, name, '', color, description, imageData);
-                    
-                    // Закрываем форму
-                    closeAddForm();
-                    
-                    showNotification('✅ Анимация успешно добавлена!', 'success');
-                } else {
-                    throw new Error('Server response not ok');
-                }
-            } catch (error) {
-                console.error('Error saving animation:', error);
-                showNotification('❌ Ошибка при сохранении на сервер. Сохраняю локально...', 'warning');
-                
-                // Fallback на localStorage
-                const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
-                customAnimations[id] = {
-                    name,
-                    icon: '',
-                    color,
-                    description,
-                    code,
-                    image: imageData
-                };
-                localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
-                codeExamples[id] = code;
-                addCardToGallery(id, name, '', color, description, imageData);
-                closeAddForm();
-            }
-        };
-        reader.readAsDataURL(imageFile);
-    } else {
-        // Без изображения - используем текст/эмодзи
-        try {
-            const response = await fetch('/api/animations', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id,
-                    title: name,
-                    description,
-                    code,
-                    color
-                })
-            });
-            
-            if (response.ok) {
-                codeExamples[id] = code;
-                addCardToGallery(id, name, icon, color, description);
-                closeAddForm();
-                showNotification('✅ Анимация успешно добавлена!', 'success');
-            } else {
-                throw new Error('Server response not ok');
-            }
-        } catch (error) {
-            console.error('Error saving animation:', error);
-            showNotification('❌ Ошибка при сохранении на сервер. Сохраняю локально...', 'warning');
-            
-            // Fallback на localStorage
-            const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
-            customAnimations[id] = {
-                name,
-                icon,
-                color,
-                description,
-                code
-            };
-            localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
-            codeExamples[id] = code;
-            addCardToGallery(id, name, icon, color, description);
-            closeAddForm();
-        }
-    }
-});
 
 // =========== СИСТЕМА УВЕДОМЛЕНИЙ ===========
 
