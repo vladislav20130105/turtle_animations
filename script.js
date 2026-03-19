@@ -291,6 +291,34 @@ async function loadAnimationsFromServer() {
         
         const animations = await response.json();
         
+        // Синхронизируем localStorage с сервером
+        const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+        let hasChanges = false;
+        
+        // Добавляем серверные анимации в localStorage
+        Object.entries(animations).forEach(([id, anim]) => {
+            // Пропускаем встроенные
+            if (!['spiral', 'circles', 'stars', 'flower', 'wave', 'polygons', 'mandala', 'tree', 'snowflake'].includes(id)) {
+                if (!customAnimations[id]) {
+                    customAnimations[id] = {
+                        name: anim.title,
+                        icon: anim.icon || '',
+                        color: anim.color || '#667eea',
+                        description: anim.description || '',
+                        code: anim.code,
+                        image: anim.image
+                    };
+                    hasChanges = true;
+                }
+            }
+        });
+        
+        // Сохраняем обновленный localStorage
+        if (hasChanges) {
+            localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+            console.log('Синхронизировано с сервером');
+        }
+        
         // Загружаем встроенные анимации (если не скрыты)
         const builtInAnimations = [
             { id: 'spiral', name: 'Спираль', icon: '🌀', color: '#FF6B6B', description: 'Геометрическая спираль с постоянно растущим размером' },
@@ -311,13 +339,10 @@ async function loadAnimationsFromServer() {
             }
         });
         
-        // Добавляем загруженные пользовательские анимации
-        Object.entries(animations).forEach(([id, anim]) => {
-            // Пропускаем встроенные (они уже добавлены)
-            if (!['spiral', 'circles', 'stars', 'flower', 'wave', 'polygons', 'mandala', 'tree', 'snowflake'].includes(id)) {
-                addCardToGallery(id, anim.title, anim.icon || '', anim.color || '#667eea', anim.description || '', anim.image);
-                codeExamples[id] = anim.code;
-            }
+        // Добавляем все анимации из localStorage (включая синхронизированные)
+        Object.entries(customAnimations).forEach(([id, anim]) => {
+            addCardToGallery(id, anim.name, anim.icon, anim.color, anim.description, anim.image);
+            codeExamples[id] = anim.code;
         });
         
     } catch (error) {
@@ -588,18 +613,22 @@ document.getElementById('animationForm')?.addEventListener('submit', async funct
                     codeExamples[id] = code;
                     console.log('Карточка добавлена на страницу');
                     
-                    // Пытаемся сохранить на сервере
-                    try {
-                        fetch('/api/animations', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                id, title: name, description, code, color, image: imageData
-                            })
-                        });
-                    } catch (error) {
-                        console.log('Server save failed, but localStorage saved');
-                    }
+                    // Пытаемся сохранить на сервере (надежно)
+                    fetch('/api/animations', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            id, title: name, description, code, color, image: imageData
+                        })
+                    }).then(response => {
+                        if (response.ok) {
+                            console.log('Успешно сохранено на сервере');
+                        } else {
+                            console.log('Ошибка сохранения на сервере');
+                        }
+                    }).catch(error => {
+                        console.log('Сервер недоступен, но localStorage сохранен');
+                    });
                     
                     closeAddForm();
                     showNotification('✅ Анимация добавлена!', 'success');
