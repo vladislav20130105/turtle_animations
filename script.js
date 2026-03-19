@@ -327,25 +327,45 @@ async function loadAnimationsFromServer() {
             codeExamples[id] = anim.code;
         });
         
-        // Теперь добавляем только те серверные анимации которых нет в localStorage
+        // Проверяем, есть ли анимации на сервере которых нет в localStorage
         Object.entries(animations).forEach(([id, anim]) => {
-            // Пропускаем встроенные и те что уже есть в localStorage
+            // Пропускаем встроенные
+            if (!['spiral', 'circles', 'stars', 'flower', 'wave', 'polygons', 'mandala', 'tree', 'snowflake'].includes(id)) {
+                if (!customAnimations[id]) {
+                    console.log('Добавляю новую анимацию с сервера:', id);
+                    customAnimations[id] = {
+                        name: anim.title,
+                        icon: anim.icon || '',
+                        color: anim.color || '#667eea',
+                        description: anim.description || '',
+                        code: anim.code,
+                        image: anim.image
+                    };
+                    hasChanges = true;
+                    
+                    // Добавляем на страницу
+                    addCardToGallery(id, anim.title, anim.icon || '', anim.color || '#667eea', anim.description || '', anim.image);
+                    codeExamples[id] = anim.code;
+                }
+            }
+        });
+        
+        // Проверяем, есть ли анимации в localStorage которых нет на сервере (удаленные на другом устройстве)
+        const serverIds = new Set(Object.keys(animations));
+        Object.keys(customAnimations).forEach(id => {
             if (!['spiral', 'circles', 'stars', 'flower', 'wave', 'polygons', 'mandala', 'tree', 'snowflake'].includes(id) && 
-                !customAnimations[id]) {
-                console.log('Добавляю новую анимацию с сервера:', id);
-                customAnimations[id] = {
-                    name: anim.title,
-                    icon: anim.icon || '',
-                    color: anim.color || '#667eea',
-                    description: anim.description || '',
-                    code: anim.code,
-                    image: anim.image
-                };
+                !serverIds.has(id)) {
+                console.log('Анимация удалена на другом устройстве, удаляю локально:', id);
+                delete customAnimations[id];
                 hasChanges = true;
                 
-                // Добавляем на страницу
-                addCardToGallery(id, anim.title, anim.icon || '', anim.color || '#667eea', anim.description || '', anim.image);
-                codeExamples[id] = anim.code;
+                // Удаляем карточку со страницы
+                const cards = document.querySelectorAll('.card');
+                cards.forEach(card => {
+                    if (card.querySelector(`[onclick*="${id}"]`)) {
+                        card.remove();
+                    }
+                });
             }
         });
         
@@ -720,7 +740,7 @@ function updateCardOnPage(id, name, icon, color, description) {
 function adminDeleteAnimation(id) {
     showConfirmDialog(
         'Удалить анимацию?',
-        'Эта анимация будет удалена безвозвратно.',
+        'Эта анимация будет удалена со всех устройств.',
         () => {
             // Удаляем из localStorage
             const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
@@ -735,16 +755,22 @@ function adminDeleteAnimation(id) {
                 }
             });
             
-            // Пытаемся удалить с сервера
-            try {
-                fetch(`/api/animations/${id}`, { method: 'DELETE' });
-            } catch (error) {
-                console.log('Server delete failed, but localStorage updated');
-            }
+            // Удаляем с сервера (чтобы удалить на всех устройствах)
+            fetch(`/api/animations/${id}`, { method: 'DELETE' })
+                .then(response => {
+                    if (response.ok) {
+                        console.log('Анимация удалена с сервера');
+                    } else {
+                        console.log('Ошибка удаления с сервера');
+                    }
+                })
+                .catch(error => {
+                    console.log('Сервер недоступен, но удалено локально');
+                });
             
             // Перезагружаем админ-панель
             openAdminPanel();
-            showNotification('✅ Анимация удалена!', 'success');
+            showNotification('✅ Анимация удалена со всех устройств!', 'success');
         }
     );
 }
