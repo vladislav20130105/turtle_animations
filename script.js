@@ -279,20 +279,24 @@ document.addEventListener('DOMContentLoaded', function() {
 // =========== ЗАГРУЗКА ДАННЫХ С СЕРВЕРА ===========
 
 async function loadAnimationsFromServer() {
+    console.log('Начинаю загрузку анимаций...');
     try {
         // Получаем список скрытых анимаций
         const hiddenResponse = await fetch('/api/hidden');
         const hiddenData = hiddenResponse.ok ? await hiddenResponse.json() : { hidden: [] };
         const hiddenSet = new Set(hiddenData.hidden);
+        console.log('Скрытые анимации:', hiddenData.hidden);
         
         // Получаем анимации с сервера
         const response = await fetch('/api/animations');
         if (!response.ok) throw new Error('Failed to fetch animations');
         
         const animations = await response.json();
+        console.log('Получено анимаций с сервера:', Object.keys(animations).length);
         
         // Синхронизируем localStorage с сервером
         const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+        console.log('Анимаций в localStorage до синхронизации:', Object.keys(customAnimations).length);
         let hasChanges = false;
         
         // Добавляем серверные анимации в localStorage (но не удаляем локальные)
@@ -300,6 +304,7 @@ async function loadAnimationsFromServer() {
             // Пропускаем встроенные
             if (!['spiral', 'circles', 'stars', 'flower', 'wave', 'polygons', 'mandala', 'tree', 'snowflake'].includes(id)) {
                 if (!customAnimations[id]) {
+                    console.log('Добавляю новую анимацию с сервера:', id);
                     customAnimations[id] = {
                         name: anim.title,
                         icon: anim.icon || '',
@@ -354,6 +359,8 @@ async function loadAnimationsFromServer() {
             });
         }
         
+        console.log('Итоговое количество анимаций в localStorage:', Object.keys(customAnimations).length);
+        
         // Загружаем встроенные анимации (если не скрыты)
         const builtInAnimations = [
             { id: 'spiral', name: 'Спираль', icon: '🌀', color: '#FF6B6B', description: 'Геометрическая спираль с постоянно растущим размером' },
@@ -371,20 +378,26 @@ async function loadAnimationsFromServer() {
         builtInAnimations.forEach(anim => {
             if (!hiddenSet.has(anim.id)) {
                 addCardToGallery(anim.id, anim.name, anim.icon, anim.color, anim.description);
+                console.log('Добавлена встроенная анимация:', anim.id);
             }
         });
         
         // Добавляем все анимации из localStorage (включая синхронизированные)
         Object.entries(customAnimations).forEach(([id, anim]) => {
+            console.log('Добавляю анимацию из localStorage:', id);
             addCardToGallery(id, anim.name, anim.icon, anim.color, anim.description, anim.image);
             codeExamples[id] = anim.code;
         });
+        
+        console.log('Загрузка завершена');
         
     } catch (error) {
         console.warn('Could not load animations from server, using localStorage:', error);
         // Fallback на localStorage
         const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+        console.log('Fallback: анимаций в localStorage:', Object.keys(customAnimations).length);
         Object.entries(customAnimations).forEach(([id, anim]) => {
+            console.log('Fallback: добавляю анимацию:', id);
             addCardToGallery(id, anim.name, anim.icon, anim.color, anim.description, anim.image);
             codeExamples[id] = anim.code;
         });

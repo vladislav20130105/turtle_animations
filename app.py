@@ -105,8 +105,8 @@ def get_animations():
                 'description': anim['description'],
                 'code': anim['code'],
                 'image': anim['image_data'],
-                'color': anim.get('color', '#667eea'),
-                'icon': anim.get('icon', '')
+                'color': anim['color'] if 'color' in anim.keys() else '#667eea',
+                'icon': anim['icon'] if 'icon' in anim.keys() else ''
             }
         
         # Добавляем встроенные анимации, кроме скрытых
