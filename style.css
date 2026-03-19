@@ -179,6 +179,11 @@ main {
     animation: fadeIn 0.3s ease;
 }
 
+/* Модальное окно подтверждения - поверх админки */
+#confirmModal {
+    z-index: 2000;
+}
+
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }

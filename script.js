@@ -315,7 +315,7 @@ async function loadAnimationsFromServer() {
         Object.entries(animations).forEach(([id, anim]) => {
             // Пропускаем встроенные (они уже добавлены)
             if (!['spiral', 'circles', 'stars', 'flower', 'wave', 'polygons', 'mandala', 'tree', 'snowflake'].includes(id)) {
-                addCardToGallery(id, anim.title, '', anim.color || '#667eea', anim.description || '', anim.image);
+                addCardToGallery(id, anim.title, anim.icon || '', anim.color || '#667eea', anim.description || '', anim.image);
                 codeExamples[id] = anim.code;
             }
         });
@@ -390,11 +390,9 @@ document.getElementById('adminLoginForm')?.addEventListener('submit', function(e
 
 async function openAdminPanel() {
     const adminList = document.getElementById('adminAnimsList');
-    const totalCount = document.getElementById('totalAnimations');
     
     // Всегда используем localStorage
     const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
-    totalCount.textContent = Object.keys(customAnimations).length;
     
     adminList.innerHTML = '';
     
@@ -436,6 +434,9 @@ function editAnimation(id) {
         return;
     }
     
+    // Закрываем админку перед открытием формы редактирования
+    closeAdminPanel();
+    
     // Заполняем форму данными анимации
     document.getElementById('animName').value = anim.name;
     document.getElementById('animIcon').value = anim.icon || '';
@@ -453,16 +454,37 @@ function editAnimation(id) {
     document.getElementById('addAnimationModal').style.display = 'block';
 }
 
-// Обновляем обработчик формы для поддержки редактирования
+// Обработка выбора файла изображения
+document.getElementById('animImage')?.addEventListener('change', function(e) {
+    const iconInput = document.getElementById('animIcon');
+    if (e.target.files.length > 0) {
+        // Если выбран файл, очищаем и отключаем поле иконки
+        iconInput.value = '';
+        iconInput.disabled = true;
+        iconInput.style.opacity = '0.5';
+        iconInput.placeholder = 'Используется загруженное изображение';
+    } else {
+        // Если файл не выбран, включаем поле иконки
+        iconInput.disabled = false;
+        iconInput.style.opacity = '1';
+        iconInput.placeholder = '🌀';
+    }
+});
+
+// Обработка отправки формы для поддержки редактирования
 document.getElementById('animationForm')?.addEventListener('submit', async function(e) {
     e.preventDefault();
+    console.log('Форма отправлена');
     
     const editId = this.getAttribute('data-edit-id');
     const name = document.getElementById('animName').value;
-    const icon = document.getElementById('animIcon').value;
+    const iconElement = document.getElementById('animIcon');
+    const icon = iconElement.disabled ? '' : iconElement.value; // Если поле отключено, используем пустую иконку
     const color = document.getElementById('animColor').value;
     const description = document.getElementById('animDescription').value;
     const code = document.getElementById('animCode').value;
+    
+    console.log('Данные формы:', { editId, name, icon, color, description, code: code.substring(0, 50) + '...' });
     
     if (editId) {
         // Режим редактирования - обновляем в localStorage
@@ -481,7 +503,7 @@ document.getElementById('animationForm')?.addEventListener('submit', async funct
             await fetch(`/api/animations/${editId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: name, description, code })
+                body: JSON.stringify({ title: name, description, code, icon, color })
             });
         } catch (error) {
             console.log('Server update failed, but localStorage updated');
@@ -490,53 +512,120 @@ document.getElementById('animationForm')?.addEventListener('submit', async funct
         showNotification('✅ Анимация обновлена!', 'success');
     } else {
         // Режим добавления - сначала сохраняем в localStorage
+        console.log('Режим добавления');
         const imageFile = document.getElementById('animImage').files[0];
         
         // Создаем уникальный ID для новой анимации
         const id = 'custom_' + Date.now();
+        console.log('Создан ID:', id);
         
         // Сохраняем в localStorage сразу
         const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
         const animData = { name, icon, color, description, code };
+        console.log('Данные для сохранения:', animData);
         
         if (imageFile) {
+            console.log('Есть файл изображения');
             // Если есть файл - конвертируем и сохраняем
             const reader = new FileReader();
             reader.onload = function(event) {
-                const imageData = event.target.result;
+                let imageData = event.target.result;
+                
+                // Проверяем размер изображения и сжимаем если нужно
+                if (imageData.length > 3000000) { // 3MB
+                    console.log('Изображение слишком большое, сжимаем...');
+                    // Создаем img для сжатия
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        // Уменьшаем размер до 800x600 максимум (максимальное качество)
+                        const maxWidth = 800;
+                        const maxHeight = 600;
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        if (width > height) {
+                            if (width > maxWidth) {
+                                height *= maxWidth / width;
+                                width = maxWidth;
+                            }
+                        } else {
+                            if (height > maxHeight) {
+                                width *= maxHeight / height;
+                                height = maxHeight;
+                            }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Сжимаем с качеством 1.0 (100% качество)
+                        imageData = canvas.toDataURL('image/jpeg', 1.0);
+                        console.log('Изображение сжато до:', imageData.length, 'байт');
+                        
+                        saveAnimationWithImage(imageData);
+                    };
+                    img.src = event.target.result;
+                } else {
+                    saveAnimationWithImage(imageData);
+                }
+            };
+            
+            function saveAnimationWithImage(imageData) {
                 animData.image = imageData;
                 customAnimations[id] = animData;
-                localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
                 
-                // Добавляем на страницу
-                addCardToGallery(id, name, '', color, description, imageData);
-                codeExamples[id] = code;
-                
-                // Пытаемся сохранить на сервере
                 try {
-                    fetch('/api/animations', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            id, title: name, description, code, color, image: imageData
-                        })
-                    });
+                    localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+                    console.log('Сохранено в localStorage с изображением');
+                    
+                    // Добавляем на страницу
+                    addCardToGallery(id, name, '', color, description, imageData);
+                    codeExamples[id] = code;
+                    console.log('Карточка добавлена на страницу');
+                    
+                    // Пытаемся сохранить на сервере
+                    try {
+                        fetch('/api/animations', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                id, title: name, description, code, color, image: imageData
+                            })
+                        });
+                    } catch (error) {
+                        console.log('Server save failed, but localStorage saved');
+                    }
+                    
+                    closeAddForm();
+                    showNotification('✅ Анимация добавлена!', 'success');
                 } catch (error) {
-                    console.log('Server save failed, but localStorage saved');
+                    if (error.name === 'QuotaExceededError') {
+                        showNotification('❌ Слишком большое изображение! Попробуйте изображение меньшего размера.', 'error');
+                        console.log('localStorage переполнен');
+                    } else {
+                        showNotification('❌ Ошибка при сохранении!', 'error');
+                        console.error('Ошибка сохранения:', error);
+                    }
                 }
-                
-                closeAddForm();
-                showNotification('✅ Анимация добавлена!', 'success');
-            };
+            }
+            
             reader.readAsDataURL(imageFile);
         } else {
+            console.log('Без изображения');
             // Без изображения
             customAnimations[id] = animData;
             localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+            console.log('Сохранено в localStorage без изображения');
             
             // Добавляем на страницу
             addCardToGallery(id, name, icon, color, description);
             codeExamples[id] = code;
+            console.log('Карточка добавлена на страницу');
             
             // Пытаемся сохранить на сервере
             try {
@@ -549,7 +638,6 @@ document.getElementById('animationForm')?.addEventListener('submit', async funct
                 console.log('Server save failed, but localStorage saved');
             }
             
-            closeAddForm();
             showNotification('✅ Анимация добавлена!', 'success');
         }
     }
@@ -558,6 +646,13 @@ document.getElementById('animationForm')?.addEventListener('submit', async funct
     this.removeAttribute('data-edit-id');
     document.querySelector('#addAnimationModal h2').textContent = '➕ Добавить новую анимацию';
     this.reset();
+    
+    // Включаем поле иконки обратно
+    const iconReset = document.getElementById('animIcon');
+    iconReset.disabled = false;
+    iconReset.style.opacity = '1';
+    iconReset.placeholder = '🌀';
+    
     closeAddForm();
 });
 

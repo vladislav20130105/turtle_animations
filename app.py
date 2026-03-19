@@ -26,6 +26,8 @@ def init_db():
                       description TEXT,
                       code TEXT NOT NULL,
                       image_data TEXT,
+                      color TEXT,
+                      icon TEXT,
                       created_at TIMESTAMP,
                       updated_at TIMESTAMP)''')
         # Таблица для отслеживания удаленных встроенных анимаций
@@ -45,6 +47,15 @@ def init_db():
                          (id TEXT PRIMARY KEY,
                           hidden_at TIMESTAMP)''')
             conn.commit()
+        
+        # Проверяем и добавляем колонки icon и color если их нет
+        try:
+            c.execute('SELECT icon FROM animations LIMIT 1')
+        except:
+            c.execute('ALTER TABLE animations ADD COLUMN icon TEXT')
+            c.execute('ALTER TABLE animations ADD COLUMN color TEXT')
+            conn.commit()
+        
         conn.close()
 
 def get_db_connection():
@@ -93,7 +104,9 @@ def get_animations():
                 'title': anim['title'],
                 'description': anim['description'],
                 'code': anim['code'],
-                'image': anim['image_data']
+                'image': anim['image_data'],
+                'color': anim.get('color', '#667eea'),
+                'icon': anim.get('icon', '')
             }
         
         # Добавляем встроенные анимации, кроме скрытых
@@ -153,10 +166,10 @@ def add_animation():
         
         now = datetime.now().isoformat()
         c.execute('''INSERT INTO animations 
-                     (id, title, description, code, image_data, created_at, updated_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                  (data['id'], data['title'], data.get('description', ''),
-                   data['code'], data.get('image'), now, now))
+                     (id, title, description, code, image_data, color, icon, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                 (data['id'], data.get('title'), data.get('description', ''),
+                  data['code'], data.get('image'), data.get('color'), data.get('icon'), now, now))
         
         conn.commit()
         conn.close()
@@ -175,9 +188,10 @@ def update_animation(animation_id):
         c = conn.cursor()
         
         c.execute('''UPDATE animations 
-                     SET title = ?, description = ?, code = ?, updated_at = ?
+                     SET title = ?, description = ?, code = ?, icon = ?, color = ?, updated_at = ?
                      WHERE id = ?''',
-                 (data.get('title'), data.get('description'), data.get('code'), datetime.now(), animation_id))
+                 (data.get('title'), data.get('description'), data.get('code'), 
+                  data.get('icon'), data.get('color'), datetime.now(), animation_id))
         
         conn.commit()
         conn.close()
