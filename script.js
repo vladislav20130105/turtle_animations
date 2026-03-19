@@ -295,7 +295,7 @@ async function loadAnimationsFromServer() {
         const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
         let hasChanges = false;
         
-        // Добавляем серверные анимации в localStorage
+        // Добавляем серверные анимации в localStorage (но не удаляем локальные)
         Object.entries(animations).forEach(([id, anim]) => {
             // Пропускаем встроенные
             if (!['spiral', 'circles', 'stars', 'flower', 'wave', 'polygons', 'mandala', 'tree', 'snowflake'].includes(id)) {
@@ -313,10 +313,45 @@ async function loadAnimationsFromServer() {
             }
         });
         
-        // Сохраняем обновленный localStorage
+        // Сохраняем объединенные данные обратно в localStorage
         if (hasChanges) {
             localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
-            console.log('Синхронизировано с сервером');
+            console.log('Добавлены новые анимации с сервера');
+        }
+        
+        // Теперь отправляем локальные анимации которых нет на сервере
+        const serverIds = new Set(Object.keys(animations));
+        const localIds = new Set(Object.keys(customAnimations));
+        
+        // Находим локальные анимации которых нет на сервере
+        const missingOnServer = [...localIds].filter(id => 
+            !serverIds.has(id) && !['spiral', 'circles', 'stars', 'flower', 'wave', 'polygons', 'mandala', 'tree', 'snowflake'].includes(id)
+        );
+        
+        // Отправляем отсутствующие анимации на сервер
+        if (missingOnServer.length > 0) {
+            console.log('Отправляем анимации на сервер:', missingOnServer);
+            missingOnServer.forEach(async (id) => {
+                const anim = customAnimations[id];
+                try {
+                    await fetch('/api/animations', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            id,
+                            title: anim.name,
+                            description: anim.description,
+                            code: anim.code,
+                            color: anim.color,
+                            image: anim.image,
+                            icon: anim.icon
+                        })
+                    });
+                    console.log('Отправлена анимация:', id);
+                } catch (error) {
+                    console.log('Не удалось отправить анимацию:', id);
+                }
+            });
         }
         
         // Загружаем встроенные анимации (если не скрыты)
