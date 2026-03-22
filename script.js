@@ -445,7 +445,36 @@ document.getElementById('adminLoginForm')?.addEventListener('submit', function(e
 async function openAdminPanel() {
     const adminList = document.getElementById('adminAnimsList');
     
-    // Всегда используем localStorage
+    // Сначала пробуем загрузить с сервера для синхронизации
+    try {
+        const response = await fetch('/api/animations');
+        if (response.ok) {
+            const serverAnimations = await response.json();
+            const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+            
+            // Добавляем серверные анимации которых нет в localStorage
+            Object.entries(serverAnimations).forEach(([id, anim]) => {
+                if (!['spiral', 'circles', 'stars', 'flower', 'wave', 'polygons', 'mandala', 'tree', 'snowflake'].includes(id) && 
+                    !customAnimations[id]) {
+                    customAnimations[id] = {
+                        name: anim.title,
+                        icon: anim.icon || '',
+                        color: anim.color || '#667eea',
+                        description: anim.description || '',
+                        code: anim.code,
+                        image: anim.image
+                    };
+                }
+            });
+            
+            // Обновляем localStorage
+            localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+        }
+    } catch (error) {
+        console.log('Сервер недоступен, используем localStorage');
+    }
+    
+    // Используем localStorage (уже синхронизированный)
     const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
     
     adminList.innerHTML = '';
