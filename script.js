@@ -467,6 +467,16 @@ async function openAdminPanel() {
                 }
             });
             
+            // Удаляем анимации которых нет на сервере (удаленные на другом устройстве)
+            const serverIds = new Set(Object.keys(serverAnimations));
+            Object.keys(customAnimations).forEach(id => {
+                if (!['spiral', 'circles', 'stars', 'flower', 'wave', 'polygons', 'mandala', 'tree', 'snowflake'].includes(id) && 
+                    !serverIds.has(id)) {
+                    console.log('Анимация удалена на другом устройстве, удаляю из админки:', id);
+                    delete customAnimations[id];
+                }
+            });
+            
             // Обновляем localStorage
             localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
         }
