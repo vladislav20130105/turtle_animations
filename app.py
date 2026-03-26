@@ -12,8 +12,9 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# Инициализация БД
-DB_FILE = 'animations.db'
+# Инициализация БД - используем постоянное хранилище для Render
+# Render предоставляет постоянную директорию /opt/render/project/src
+DB_FILE = os.path.join(os.getcwd(), 'animations.db')
 
 def init_db():
     """Инициализирует базу данных"""
@@ -30,16 +31,20 @@ def init_db():
                       icon TEXT,
                       created_at TIMESTAMP,
                       updated_at TIMESTAMP)''')
-        # Таблица для отслеживания удаленных встроенных анимаций
+        
+        # Создаем таблицу для скрытых анимаций
         c.execute('''CREATE TABLE hidden_animations
                      (id TEXT PRIMARY KEY,
                       hidden_at TIMESTAMP)''')
+        
         conn.commit()
         conn.close()
+        print("База данных создана")
     else:
-        # Проверяем есть ли таблица hidden_animations, если нет - создаем
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
+        
+        # Проверяем есть ли таблица hidden_animations, если нет - создаем
         try:
             c.execute('SELECT * FROM hidden_animations LIMIT 1')
         except:
@@ -57,6 +62,90 @@ def init_db():
             conn.commit()
         
         conn.close()
+        print("База данных проверена и обновлена")
+
+def backup_data():
+    """Создает бэкап данных в файл"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Получаем все анимации
+        c.execute('SELECT * FROM animations ORDER BY created_at DESC')
+        animations = c.fetchall()
+        
+        # Получаем скрытые анимации
+        c.execute('SELECT id FROM hidden_animations')
+        hidden = [row['id'] for row in c.fetchall()]
+        
+        conn.close()
+        
+        # Сохраняем в JSON файл
+        backup_data = {
+            'animations': [
+                {
+                    'id': anim['id'],
+                    'title': anim['title'],
+                    'description': anim['description'],
+                    'code': anim['code'],
+                    'image_data': anim['image_data'],
+                    'color': anim['color'],
+                    'icon': anim['icon'],
+                    'created_at': anim['created_at'],
+                    'updated_at': anim['updated_at']
+                }
+                for anim in animations
+            ],
+            'hidden': hidden,
+            'backup_date': datetime.now().isoformat()
+        }
+        
+        with open('animations_backup.json', 'w', encoding='utf-8') as f:
+            json.dump(backup_data, f, ensure_ascii=False, indent=2)
+        
+        print(f"Бэкап создан: {len(animations)} анимаций")
+        
+    except Exception as e:
+        print(f"Ошибка бэкапа: {e}")
+
+def restore_data():
+    """Восстанавливает данные из бэкапа если база пуста"""
+    try:
+        if not os.path.exists('animations_backup.json'):
+            return False
+            
+        with open('animations_backup.json', 'r', encoding='utf-8') as f:
+            backup_data = json.load(f)
+        
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Восстанавливаем анимации
+        for anim in backup_data['animations']:
+            c.execute('''INSERT OR REPLACE INTO animations 
+                         (id, title, description, code, image_data, color, icon, created_at, updated_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                     (anim['id'], anim['title'], anim['description'], anim['code'],
+                      anim['image_data'], anim['color'], anim['icon'], anim['created_at'], anim['updated_at']))
+        
+        # Восстанавливаем скрытые анимации
+        for hidden_id in backup_data['hidden']:
+            c.execute('INSERT OR REPLACE INTO hidden_animations (id, hidden_at) VALUES (?, ?)',
+                     (hidden_id, datetime.now().isoformat()))
+        
+        conn.commit()
+        conn.close()
+        
+        print(f"Восстановлено: {len(backup_data['animations'])} анимаций")
+        return True
+        
+    except Exception as e:
+        print(f"Ошибка восстановления: {e}")
+        return False
+
+def save_backup_after_change():
+    """Сохраняет бэкап после каждого изменения"""
+    backup_data()
 
 def get_db_connection():
     """Получить подключение к БД"""
@@ -66,6 +155,20 @@ def get_db_connection():
 
 # Инициализируем БД при запуске
 init_db()
+
+# Проверяем нужно ли восстановить данные
+conn = get_db_connection()
+c = conn.cursor()
+c.execute('SELECT COUNT(*) as count FROM animations')
+count = c.fetchone()['count']
+conn.close()
+
+if count == 0 and os.path.exists('animations_backup.json'):
+    print("База пуста, пробуем восстановить из бэкапа...")
+    if restore_data():
+        print("Данные успешно восстановлены")
+    else:
+        print("Не удалось восстановить данные")
 
 # ===== Основные роуты =====
 
@@ -174,6 +277,9 @@ def add_animation():
         conn.commit()
         conn.close()
         
+        # Создаем бэкап после добавления
+        save_backup_after_change()
+        
         return jsonify({'success': True}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -195,6 +301,9 @@ def update_animation(animation_id):
         
         conn.commit()
         conn.close()
+        
+        # Создаем бэкап после обновления
+        save_backup_after_change()
         
         return jsonify({'success': True, 'message': 'Анимация обновлена'})
     except Exception as e:
@@ -221,6 +330,9 @@ def delete_animation(animation_id):
         
         conn.commit()
         conn.close()
+        
+        # Создаем бэкап после удаления
+        save_backup_after_change()
         
         return jsonify({'success': True})
     except Exception as e:
