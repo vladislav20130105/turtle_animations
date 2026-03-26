@@ -537,14 +537,125 @@ function editAnimation(id) {
     document.getElementById('animDescription').value = anim.description;
     document.getElementById('animCode').value = anim.code;
     
+    // Если есть изображение, показываем превью и отключаем поле иконки
+    if (anim.image) {
+        // Создаем превью изображения
+        const imageContainer = document.createElement('div');
+        imageContainer.style.cssText = 'margin-bottom: 15px; text-align: center;';
+        imageContainer.innerHTML = `
+            <img src="${anim.image}" style="max-width: 200px; max-height: 150px; border-radius: 8px; border: 2px solid #ddd;">
+            <p style="margin-top: 5px; font-size: 0.85em; opacity: 0.7;">Текущее изображение</p>
+            <button type="button" onclick="removeCurrentImage()" style="margin-top: 5px; padding: 5px 10px; background: #ff6b6b; color: white; border: none; border-radius: 4px; cursor: pointer;">Удалить изображение</button>
+        `;
+        
+        // Находим поле изображения и добавляем превью перед ним
+        const imageField = document.getElementById('animImage').parentElement;
+        imageField.insertBefore(imageContainer, document.getElementById('animImage'));
+        
+        // Отключаем поле иконки
+        const iconInput = document.getElementById('animIcon');
+        iconInput.value = '';
+        iconInput.disabled = true;
+        iconInput.style.opacity = '0.5';
+        iconInput.placeholder = 'Используется загруженное изображение';
+        
+        // Сохраняем текущее изображение для формы
+        document.getElementById('animationForm').setAttribute('data-current-image', anim.image);
+    } else {
+        // Если нет изображения, включаем поле иконки
+        const iconInput = document.getElementById('animIcon');
+        iconInput.disabled = false;
+        iconInput.style.opacity = '1';
+        iconInput.placeholder = '🌀';
+        
+        // Удаляем предыдущее превью если есть
+        const existingPreview = document.querySelector('#animImage').parentElement.querySelector('div');
+        if (existingPreview && existingPreview.innerHTML.includes('Текущее изображение')) {
+            existingPreview.remove();
+        }
+        
+        document.getElementById('animationForm').removeAttribute('data-current-image');
+    }
+    
     // Меняем заголовок формы
-    document.querySelector('#addAnimationModal h2').textContent = '✏️ Редактировать анимацию';
+    document.querySelector('#addAnimationModal h2').textContent = '✏️ Изменить анимацию';
     
     // Сохраняем ID редактируемой анимации
     document.getElementById('animationForm').setAttribute('data-edit-id', id);
     
     // Показываем форму
     document.getElementById('addAnimationModal').style.display = 'block';
+}
+
+// Функция для удаления текущего изображения при редактировании
+function removeCurrentImage() {
+    // Удаляем превью
+    const existingPreview = document.querySelector('#animImage').parentElement.querySelector('div');
+    if (existingPreview && existingPreview.innerHTML.includes('Текущее изображение')) {
+        existingPreview.remove();
+    }
+    
+    // Включаем поле иконки
+    const iconInput = document.getElementById('animIcon');
+    iconInput.disabled = false;
+    iconInput.style.opacity = '1';
+    iconInput.placeholder = '🌀';
+    
+    // Удаляем текущее изображение из данных формы
+    document.getElementById('animationForm').removeAttribute('data-current-image');
+}
+
+// Вспомогательные функции для редактирования
+function saveEditWithImage(imageData) {
+    const editId = document.getElementById('animationForm').getAttribute('data-edit-id');
+    const name = document.getElementById('animName').value;
+    const icon = document.getElementById('animIcon').value;
+    const color = document.getElementById('animColor').value;
+    const description = document.getElementById('animDescription').value;
+    const code = document.getElementById('animCode').value;
+    
+    const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
+    customAnimations[editId] = { name, icon, color, description, code, image: imageData };
+    localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+    
+    // Обновляем карточку на странице
+    updateCardOnPage(editId, name, '', color, description, imageData);
+    
+    // Обновляем код
+    codeExamples[editId] = code;
+    
+    // Сохраняем на сервере
+    saveEditOnServer(imageData);
+    
+    showNotification('✅ Анимация обновлена!', 'success');
+}
+
+function saveEditOnServer(imageData) {
+    const editId = document.getElementById('animationForm').getAttribute('data-edit-id');
+    const name = document.getElementById('animName').value;
+    const icon = document.getElementById('animIcon').value;
+    const color = document.getElementById('animColor').value;
+    const description = document.getElementById('animDescription').value;
+    const code = document.getElementById('animCode').value;
+    
+    const updateData = { title: name, description, code, icon, color };
+    if (imageData) {
+        updateData.image = imageData;
+    }
+    
+    fetch(`/api/animations/${editId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+    }).then(response => {
+        if (response.ok) {
+            console.log('Анимация обновлена на сервере');
+        } else {
+            console.log('Ошибка обновления на сервере');
+        }
+    }).catch(error => {
+        console.log('Сервер недоступен, но localStorage обновлен');
+    });
 }
 
 // Обработка выбора файла изображения
@@ -582,27 +693,91 @@ document.getElementById('animationForm')?.addEventListener('submit', async funct
     if (editId) {
         // Режим редактирования - обновляем в localStorage
         const customAnimations = JSON.parse(localStorage.getItem('customAnimations') || '{}');
-        customAnimations[editId] = { name, icon, color, description, code };
-        localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+        const currentImage = document.getElementById('animationForm').getAttribute('data-current-image');
+        const imageFile = document.getElementById('animImage').files[0];
         
-        // Обновляем карточку на странице
-        updateCardOnPage(editId, name, icon, color, description);
-        
-        // Обновляем код
-        codeExamples[editId] = code;
-        
-        // Пытаемся сохранить на сервере (но не обязательно)
-        try {
-            await fetch(`/api/animations/${editId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: name, description, code, icon, color })
-            });
-        } catch (error) {
-            console.log('Server update failed, but localStorage updated');
+        // Проверяем изменилось ли изображение
+        if (imageFile) {
+            // Загрузили новое изображение
+            console.log('Редактирование с новым изображением');
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                let imageData = event.target.result;
+                
+                // Сжимаем если нужно
+                if (imageData.length > 3000000) { // 3MB
+                    console.log('Изображение слишком большое, сжимаем...');
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        const maxWidth = 800;
+                        const maxHeight = 600;
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        if (width > height) {
+                            if (width > maxWidth) {
+                                height *= maxWidth / width;
+                                width = maxWidth;
+                            }
+                        } else {
+                            if (height > maxHeight) {
+                                width *= maxHeight / height;
+                                height = maxHeight;
+                            }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        imageData = canvas.toDataURL('image/jpeg', 1.0);
+                        console.log('Изображение сжато до:', imageData.length, 'байт');
+                        
+                        saveEditWithImage(imageData);
+                    };
+                    img.src = event.target.result;
+                } else {
+                    saveEditWithImage(imageData);
+                }
+            };
+            reader.readAsDataURL(imageFile);
+        } else if (currentImage) {
+            // Сохраняем текущее изображение
+            console.log('Редактирование с текущим изображением');
+            customAnimations[editId] = { name, icon, color, description, code, image: currentImage };
+            localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+            
+            // Обновляем карточку на странице
+            updateCardOnPage(editId, name, icon, color, description, currentImage);
+            
+            // Обновляем код
+            codeExamples[editId] = code;
+            
+            // Сохраняем на сервере
+            saveEditOnServer(currentImage);
+            
+            showNotification('✅ Анимация обновлена!', 'success');
+        } else {
+            // Без изображения
+            console.log('Редактирование без изображения');
+            customAnimations[editId] = { name, icon, color, description, code };
+            localStorage.setItem('customAnimations', JSON.stringify(customAnimations));
+            
+            // Обновляем карточку на странице
+            updateCardOnPage(editId, name, icon, color, description);
+            
+            // Обновляем код
+            codeExamples[editId] = code;
+            
+            // Сохраняем на сервере
+            saveEditOnServer(null);
+            
+            showNotification('✅ Анимация обновлена!', 'success');
         }
-        
-        showNotification('✅ Анимация обновлена!', 'success');
     } else {
         // Режим добавления - сначала сохраняем в localStorage
         console.log('Режим добавления');
@@ -741,8 +916,15 @@ document.getElementById('animationForm')?.addEventListener('submit', async funct
     
     // Сбрасываем форму
     this.removeAttribute('data-edit-id');
+    this.removeAttribute('data-current-image');
     document.querySelector('#addAnimationModal h2').textContent = '➕ Добавить новую анимацию';
     this.reset();
+    
+    // Удаляем превью изображения если есть
+    const existingPreview = document.querySelector('#animImage').parentElement.querySelector('div');
+    if (existingPreview && existingPreview.innerHTML.includes('Текущее изображение')) {
+        existingPreview.remove();
+    }
     
     // Включаем поле иконки обратно
     const iconReset = document.getElementById('animIcon');
